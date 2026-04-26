@@ -1,36 +1,34 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# ClanSko
 
-## Getting Started
+> For serious builder-minded engineering students in India.
 
-First, run the development server:
+ClanSko is a community web app where engineering students who want to build startups — not just get placed — find like-minded people, discuss ideas, form teams, and stay accountable together.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## The Problem
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Most engineering students feel isolated. Everyone around them is placement-focused. There is no platform in India built specifically for the 1 in 20 student who wants to build.
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+## What ClanSko Solves
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+- **Isolation** — find your tribe across colleges
+- **Discovery** — filter builders by skill, college, and goal  
+- **Ideas dying alone** — post, discuss, validate with real builders
+- **Consistency gap** — weekly goals and streak tracking
 
-## Learn More
+## Tech Stack
 
-To learn more about Next.js, take a look at the following resources:
+- **Frontend** — Next.js 14, Tailwind CSS
+- **Backend** — Next.js API Routes
+- **Database** — Supabase (PostgreSQL)
+- **Auth** — Supabase Auth
+- **Realtime** — Supabase Realtime (chat)
+- **Hosting** — Vercel
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Status
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
+🚧 Currently in active development — Week 1 of 12
 
-## Deploy on Vercel
+## Builder
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+Made by a BTech CSE student who felt this problem personally.
+Proof over intention. Action over consumption.

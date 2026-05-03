@@ -1,21 +1,15 @@
 // app/(app)/onboarding/page.jsx
-// Multi-step onboarding form — shown after signup
-// Collects: college, branch, year, bio, skills, looking_for
-// On complete → sets onboarding_done = true → redirects to /feed
-
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
-// All Indian engineering branches — dropdown options
 const BRANCHES = [
   'Computer Science', 'Information Technology', 'Electronics & Communication',
   'Electrical Engineering', 'Mechanical Engineering', 'Civil Engineering',
   'Chemical Engineering', 'Biotechnology', 'Other'
 ]
 
-// Common skills for builder students
 const SKILL_OPTIONS = [
   'React', 'Next.js', 'Node.js', 'Python', 'Django', 'Flutter',
   'React Native', 'UI/UX Design', 'Figma', 'Machine Learning',
@@ -23,7 +17,6 @@ const SKILL_OPTIONS = [
   'PostgreSQL', 'Java', 'C++', 'Marketing', 'Sales', 'No-code'
 ]
 
-// What kind of co-builders they're looking for
 const LOOKING_FOR_OPTIONS = [
   'Co-founder', 'Technical Partner', 'Designer', 'Marketing Partner',
   'Accountability Partner', 'Just exploring', 'Mentor'
@@ -32,48 +25,85 @@ const LOOKING_FOR_OPTIONS = [
 export default function OnboardingPage() {
   const router = useRouter()
 
-  // Which step we're on: 1, 2, or 3
-  const [step, setStep] = useState(1)
-
-  // We need the userId to call our PATCH API
-  const [userId, setUserId] = useState(null)
-
-  // Form fields
-  const [college, setCollege]       = useState('')
-  const [branch, setBranch]         = useState('')
-  const [year, setYear]             = useState('')
-  const [bio, setBio]               = useState('')
-  const [skills, setSkills]         = useState([])       // array
+  const [step, setStep]           = useState(1)
+  const [userId, setUserId]       = useState(null)
+  const [college, setCollege]     = useState('')
+  const [branch, setBranch]       = useState('')
+  const [year, setYear]           = useState('')
+  const [bio, setBio]             = useState('')
+  const [skills, setSkills]       = useState([])
   const [lookingFor, setLookingFor] = useState('')
+  const [loading, setLoading]     = useState(false)
+  const [error, setError]         = useState('')
+  const [pageLoading, setPageLoading] = useState(true)
 
-  // UI state
-  const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState('')
-
-  // On mount — get the logged-in user's ID from Supabase session
   useEffect(() => {
     async function getUser() {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        // Not logged in — send to login
+      try {
+        // Try getUser first — most reliable
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
+
+        if (userError || !user) {
+          // Fallback to getSession
+          const { data: { session } } = await supabase.auth.getSession()
+          if (!session) {
+            router.push('/login')
+            return
+          }
+          // Use session user if getUser failed
+          const sessionUserId = session.user.id
+          
+          // Check onboarding status
+          const { data: profile } = await supabase
+            .from('users')
+            .select('onboarding_done')
+            .eq('id', sessionUserId)
+            .single()
+
+          if (profile?.onboarding_done) {
+            router.push('/feed')
+            return
+          }
+
+          console.log('userId from session:', sessionUserId)
+          setUserId(sessionUserId)
+          setPageLoading(false)
+          return
+        }
+
+        console.log('userId from getUser:', user.id)
+
+        // Check if onboarding already done
+        const { data: profile } = await supabase
+          .from('users')
+          .select('onboarding_done')
+          .eq('id', user.id)
+          .single()
+
+        if (profile?.onboarding_done) {
+          router.push('/feed')
+          return
+        }
+
+        setUserId(user.id)
+        setPageLoading(false)
+
+      } catch (err) {
+        console.error('getUser error:', err)
         router.push('/login')
-        return
       }
-      setUserId(session.user.id)
     }
     getUser()
   }, [])
 
-  // Toggle a skill on/off when clicked
   function toggleSkill(skill) {
     setSkills(prev =>
       prev.includes(skill)
-        ? prev.filter(s => s !== skill)   // remove if already selected
-        : [...prev, skill]                 // add if not selected
+        ? prev.filter(s => s !== skill)
+        : [...prev, skill]
     )
   }
 
-  // Validate and move to next step
   function handleNext() {
     setError('')
     if (step === 1) {
@@ -88,46 +118,69 @@ export default function OnboardingPage() {
     setStep(prev => prev + 1)
   }
 
-  // Final submit — called on step 3
   async function handleSubmit() {
     setError('')
     if (!lookingFor) return setError('Please select what you are looking for.')
-    if (!userId)     return setError('Session expired. Please log in again.')
 
+    // Final check — get userId fresh from session if state is null
+    let finalUserId = userId
+    if (!finalUserId) {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) return setError('Session expired. Please log in again.')
+        finalUserId = session.user.id
+      } else {
+        finalUserId = user.id
+      }
+    }
+
+    console.log('Submitting with userId:', finalUserId)
     setLoading(true)
+
     try {
       const res = await fetch('/api/users/update', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId,
+          userId: finalUserId,
           college,
           branch,
-          year: parseInt(year),   // store as number
+          year: parseInt(year),
           bio,
           skills,
-          looking_for: lookingFor,
+          looking_for: [lookingFor],
           onboarding_done: true,
         }),
       })
 
       const data = await res.json()
+      console.log('Update response:', data)
+
       if (!res.ok) {
         setError(data.error || 'Something went wrong. Try again.')
         setLoading(false)
         return
       }
 
-      // Success — go to feed
       router.push('/feed')
 
     } catch (err) {
+      console.error('Submit error:', err)
       setError('Network error. Check your connection.')
       setLoading(false)
     }
   }
 
-  // ── UI ──────────────────────────────────────────────────────────────
+  // Show loading spinner while checking session
+  if (pageLoading) {
+    return (
+      <main style={{ backgroundColor: '#0f0f1a', minHeight: '100vh' }}
+        className="flex items-center justify-center">
+        <p style={{ color: '#94a3b8' }} className="text-sm">Loading...</p>
+      </main>
+    )
+  }
 
   return (
     <main
@@ -158,19 +211,15 @@ export default function OnboardingPage() {
         </div>
 
         {/* Card */}
-        <div
-          className="p-6 rounded-2xl border border-white/10"
-          style={{ backgroundColor: '#16213e' }}
-        >
+        <div className="p-6 rounded-2xl border border-white/10" style={{ backgroundColor: '#16213e' }}>
 
-          {/* ── STEP 1 — College info ── */}
+          {/* STEP 1 */}
           {step === 1 && (
             <div className="flex flex-col gap-4">
               <h2 className="text-lg font-medium" style={{ color: '#f8fafc' }}>
                 Where do you study?
               </h2>
 
-              {/* College name */}
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium" style={{ color: '#94a3b8', letterSpacing: '0.08em' }}>
                   COLLEGE NAME
@@ -187,7 +236,6 @@ export default function OnboardingPage() {
                 />
               </div>
 
-              {/* Branch dropdown */}
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium" style={{ color: '#94a3b8', letterSpacing: '0.08em' }}>
                   BRANCH
@@ -207,7 +255,6 @@ export default function OnboardingPage() {
                 </select>
               </div>
 
-              {/* Year dropdown */}
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium" style={{ color: '#94a3b8', letterSpacing: '0.08em' }}>
                   YEAR
@@ -229,14 +276,13 @@ export default function OnboardingPage() {
             </div>
           )}
 
-          {/* ── STEP 2 — Bio + Skills ── */}
+          {/* STEP 2 */}
           {step === 2 && (
             <div className="flex flex-col gap-4">
               <h2 className="text-lg font-medium" style={{ color: '#f8fafc' }}>
                 Tell us about yourself
               </h2>
 
-              {/* Bio */}
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium" style={{ color: '#94a3b8', letterSpacing: '0.08em' }}>
                   BIO <span style={{ color: '#6c63ff' }}>(max 200 chars)</span>
@@ -254,7 +300,6 @@ export default function OnboardingPage() {
                 <p className="text-xs text-right" style={{ color: '#94a3b8' }}>{bio.length}/200</p>
               </div>
 
-              {/* Skills — pill toggle */}
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-medium" style={{ color: '#94a3b8', letterSpacing: '0.08em' }}>
                   YOUR SKILLS <span style={{ color: '#6c63ff' }}>(pick all that apply)</span>
@@ -284,7 +329,7 @@ export default function OnboardingPage() {
             </div>
           )}
 
-          {/* ── STEP 3 — Looking for ── */}
+          {/* STEP 3 */}
           {step === 3 && (
             <div className="flex flex-col gap-4">
               <h2 className="text-lg font-medium" style={{ color: '#f8fafc' }}>
@@ -318,19 +363,16 @@ export default function OnboardingPage() {
             </div>
           )}
 
-          {/* Error message */}
+          {/* Error */}
           {error && (
-            <div
-              className="mt-4 px-4 py-3 rounded-lg text-sm"
-              style={{ backgroundColor: '#ff4d4d11', border: '1px solid #ff4d4d44', color: '#ff4d4d' }}
-            >
+            <div className="mt-4 px-4 py-3 rounded-lg text-sm"
+              style={{ backgroundColor: '#ff4d4d11', border: '1px solid #ff4d4d44', color: '#ff4d4d' }}>
               {error}
             </div>
           )}
 
-          {/* Navigation buttons */}
+          {/* Buttons */}
           <div className="flex gap-3 mt-6">
-            {/* Back button — only show on step 2 and 3 */}
             {step > 1 && (
               <button
                 type="button"
@@ -343,7 +385,6 @@ export default function OnboardingPage() {
               </button>
             )}
 
-            {/* Next or Finish button */}
             {step < 3 ? (
               <button
                 type="button"
@@ -370,7 +411,6 @@ export default function OnboardingPage() {
             )}
           </div>
         </div>
-
       </div>
     </main>
   )

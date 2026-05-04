@@ -208,50 +208,39 @@ export default function FeedPage() {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#0f0f1a', color: '#f8fafc' }}>
 
-      {/* ── TOP NAV ──────────────────────────────────────────────────────── */}
-      <nav style={{
-        backgroundColor: '#16213e',
-        borderBottom: '1px solid #1e2a4a',
-        padding: '0 24px',
-        height: '60px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        position: 'sticky',
-        top: 0,
-        zIndex: 100,
-      }}>
-        <span style={{ fontSize: '20px', fontWeight: 600, color: '#6c63ff', letterSpacing: '0.08em' }}>
-          ClanSko
-        </span>
-        <button
-          onClick={() => setShowModal(true)}
-          style={{
-            backgroundColor: '#6c63ff',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '8px 20px',
-            fontSize: '14px',
-            fontWeight: 500,
-            cursor: 'pointer',
-            letterSpacing: '0.08em',
-          }}
-        >
-          + Post Idea
-        </button>
-      </nav>
-
       {/* ── MAIN CONTENT ─────────────────────────────────────────────────── */}
       <main style={{ maxWidth: '680px', margin: '0 auto', padding: '32px 16px' }}>
 
-        {/* Page heading */}
-        <h1 style={{ fontSize: '22px', fontWeight: 500, marginBottom: '8px', letterSpacing: '0.08em' }}>
-          Builder Feed
-        </h1>
-        <p style={{ fontSize: '14px', color: '#94a3b8', marginBottom: '32px' }}>
-          Ideas, projects, and teams forming in real time.
-        </p>
+        {/* Header row with Post Idea button */}
+  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+    <div>
+      <h1 style={{ fontSize: '32px', fontWeight: 500, color: '#f8fafc', letterSpacing: '0.08em' }}>
+        Builder Feed
+      </h1>
+      <p style={{ fontSize: '16px', color: '#94a3b8', marginTop: '4px' }}>
+        Ideas, projects, and teams forming in real time.
+      </p>
+    </div>
+
+    {/* Post Idea button */}
+    <button
+      onClick={() => setShowModal(true)}
+      style={{
+        backgroundColor: '#6c63ff',
+        color: '#fff',
+        border: 'none',
+        borderRadius: '8px',
+        padding: '10px 20px',
+        fontSize: '14px',
+        fontWeight: 500,
+        cursor: 'pointer',
+        letterSpacing: '0.08em',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      + Post Idea
+    </button>
+  </div>
 
         {/* ── LOADING STATE ─────────────────────────────────────────────── */}
         {loading && (

@@ -25,7 +25,7 @@ Most engineering students feel isolated. Everyone around them is placement-focus
 
 ## Status
 
-🚧 Currently in active development — Week 1 of 12
+🚧 Currently in active development — Week 6 of 12
 
 ## Builder
 

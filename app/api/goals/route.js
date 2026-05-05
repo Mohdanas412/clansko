@@ -2,6 +2,7 @@
 // GET  → fetch goals for a user for a given week
 // POST → create a new goal for the current week
 
+export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'

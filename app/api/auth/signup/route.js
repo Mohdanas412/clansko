@@ -1,4 +1,5 @@
 // app/api/auth/signup/route.js
+export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'

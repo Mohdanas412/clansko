@@ -1,6 +1,7 @@
 // app/api/posts/create/route.js
 // API route to create a new post in the posts table
 
+export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'

@@ -2,6 +2,7 @@
 // GET a single post by ID
 // Returns: post + author info + all comments (with commenter info) + reactions
 
+export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'

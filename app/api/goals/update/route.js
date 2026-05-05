@@ -3,6 +3,7 @@
 //         when marked done → increment streak_count
 //         when marked pending → decrement streak_count (min 0)
 
+export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'

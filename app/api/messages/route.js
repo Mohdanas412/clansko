@@ -2,6 +2,7 @@
 // GET /api/messages?connectionId=xxx
 // Returns all messages for a given connection, oldest first
 
+export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'

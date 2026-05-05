@@ -5,6 +5,7 @@
 //   - If user reacted with SAME type → remove it (toggle off)
 //   - If user reacted with DIFFERENT type → swap to new type
 
+export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'

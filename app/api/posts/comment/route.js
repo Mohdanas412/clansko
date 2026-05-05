@@ -3,6 +3,7 @@
 // Returns the new comment WITH commenter info (name + photo)
 // so the frontend can immediately append it to the list without refetching
 
+export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'

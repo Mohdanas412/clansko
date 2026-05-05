@@ -2,6 +2,7 @@
 // Marks all unread messages in a conversation as is_read = true
 // Called when a user opens a chat — clears the unread badge
 
+export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'

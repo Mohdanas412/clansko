@@ -1,6 +1,7 @@
 // app/api/connections/request/route.js
 // POST — Send a connection request from one user to another
 
+export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'

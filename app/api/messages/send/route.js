@@ -3,6 +3,7 @@
 // Inserts a new message into the messages table
 // Body: { connectionId, senderId, content }
 
+export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'

@@ -1,6 +1,7 @@
 // app/api/connections/route.js
 // GET — Fetch all connections for a given user (sent + received)
 
+export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'

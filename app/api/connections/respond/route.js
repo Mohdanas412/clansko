@@ -1,6 +1,7 @@
 // app/api/connections/respond/route.js
 // PATCH — Accept or reject a pending connection request
 
+export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'

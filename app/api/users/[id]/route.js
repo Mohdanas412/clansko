@@ -2,6 +2,7 @@
 // GET /api/users/:id
 // Fetches a single user's public profile by their userId
 
+export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 

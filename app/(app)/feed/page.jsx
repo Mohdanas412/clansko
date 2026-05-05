@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import { useRouter } from 'next/navigation'
+import toast from 'react-hot-toast'
 
 // ─── STAGE OPTIONS for the create post form ───────────────────────────────
 const STAGE_OPTIONS = [
@@ -146,12 +147,14 @@ export default function FeedPage() {
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Failed to create post')
 
-      // Reset form + close modal + refresh feed
+      /// Reset form + close modal + refresh feed
       setForm({ title: '', description: '', stage: '', looking_for: [] })
       setShowModal(false)
+      toast.success('Idea posted! 🚀')
       await fetchPosts()
     } catch (err) {
       setFormError(err.message)
+      toast.error('Failed to post. Try again.')
     } finally {
       setFormLoading(false)
     }
@@ -198,7 +201,7 @@ export default function FeedPage() {
         }
       }))
     } catch (err) {
-      console.error('React error:', err)
+      toast.error('Failed to react. Try again.')
     }
   }
 
@@ -682,8 +685,10 @@ function ExpandedPost({ post, currentUser, onClose, onReact, onCommentAdded }) {
       }))
       setComment('')
       onCommentAdded(post.id)  // update count in feed
+      toast.success('Comment posted!')
     } catch (err) {
       setCommentError(err.message)
+      toast.error('Failed to post comment.')
     } finally {
       setCommentLoading(false)
     }

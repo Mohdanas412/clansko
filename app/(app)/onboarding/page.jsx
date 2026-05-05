@@ -22,80 +22,53 @@ const LOOKING_FOR_OPTIONS = [
   'Accountability Partner', 'Just exploring', 'Mentor'
 ]
 
+// Create supabase client ONCE outside component — fixes multiple GoTrueClient warning
+const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+)
+
 export default function OnboardingPage() {
   const router = useRouter()
 
-  // Always use createBrowserClient in client components — never lib/supabase.js
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  )
-
-  const [step, setStep]           = useState(1)
-  const [userId, setUserId]       = useState(null)
-  const [college, setCollege]     = useState('')
-  const [branch, setBranch]       = useState('')
-  const [year, setYear]           = useState('')
-  const [bio, setBio]             = useState('')
-  const [skills, setSkills]       = useState([])
-  const [lookingFor, setLookingFor] = useState('')
-  const [loading, setLoading]     = useState(false)
-  const [error, setError]         = useState('')
+  const [step, setStep]               = useState(1)
+  const [userId, setUserId]           = useState(null)
+  const [college, setCollege]         = useState('')
+  const [branch, setBranch]           = useState('')
+  const [year, setYear]               = useState('')
+  const [bio, setBio]                 = useState('')
+  const [skills, setSkills]           = useState([])
+  const [lookingFor, setLookingFor]   = useState('')
+  const [loading, setLoading]         = useState(false)
+  const [error, setError]             = useState('')
   const [pageLoading, setPageLoading] = useState(true)
 
   useEffect(() => {
     async function getUser() {
       try {
-        // Try getUser first — most reliable
-        const { data: { user }, error: userError } = await supabase.auth.getUser()
+        // Only use auth methods — NO direct DB calls here
+        // Direct DB calls fail on Vercel due to missing apikey header
+        const { data: userData } = await supabase.auth.getUser()
 
-        if (userError || !user) {
-          // Fallback to getSession
-          const { data: { session } } = await supabase.auth.getSession()
-          if (!session) {
-            router.push('/login')
-            return
-          }
-          // Use session user if getUser failed
-          const sessionUserId = session.user.id
-          
-          // Check onboarding status
-          const { data: profile } = await supabase
-            .from('users')
-            .select('onboarding_done')
-            .eq('id', sessionUserId)
-            .single()
-
-          if (profile?.onboarding_done) {
-            router.push('/feed')
-            return
-          }
-
-          //('userId from session:', sessionUserId)
-          setUserId(sessionUserId)
+        if (userData?.user?.id) {
+          setUserId(userData.user.id)
           setPageLoading(false)
           return
         }
 
-        //('userId from getUser:', user.id)
-
-        // Check if onboarding already done
-        const { data: profile } = await supabase
-          .from('users')
-          .select('onboarding_done')
-          .eq('id', user.id)
-          .single()
-
-        if (profile?.onboarding_done) {
-          router.push('/feed')
+        // Fallback to session
+        const { data: sessionData } = await supabase.auth.getSession()
+        if (sessionData?.session?.user?.id) {
+          setUserId(sessionData.session.user.id)
+          setPageLoading(false)
           return
         }
 
-        setUserId(user.id)
-        setPageLoading(false)
+        // No session found — send to login
+        router.push('/login')
 
       } catch (err) {
-        console.error('getUser error:', err)
+        console.error('Auth error:', err)
         router.push('/login')
       }
     }
@@ -125,65 +98,67 @@ export default function OnboardingPage() {
   }
 
   async function handleSubmit() {
-  setError('')
-  if (!lookingFor) return setError('Please select what you are looking for.')
+    setError('')
+    if (!lookingFor) return setError('Please select what you are looking for.')
 
-  setLoading(true)
+    setLoading(true)
 
-  try {
-    // THIS PART IS MISSING — get userId fresh
-    let finalUserId = null
+    try {
+      // Get userId fresh — never rely on state alone
+      let finalUserId = null
 
-    const { data: userData } = await supabase.auth.getUser()
-    if (userData?.user?.id) {
-      finalUserId = userData.user.id
-    }
-
-    if (!finalUserId) {
-      const { data: sessionData } = await supabase.auth.getSession()
-      if (sessionData?.session?.user?.id) {
-        finalUserId = sessionData.session.user.id
+      const { data: userData } = await supabase.auth.getUser()
+      if (userData?.user?.id) {
+        finalUserId = userData.user.id
       }
-    }
 
-    if (!finalUserId) {
-      setError('Session expired. Please log in again.')
+      if (!finalUserId) {
+        const { data: sessionData } = await supabase.auth.getSession()
+        if (sessionData?.session?.user?.id) {
+          finalUserId = sessionData.session.user.id
+        }
+      }
+
+      if (!finalUserId) {
+        setError('Session expired. Please log in again.')
+        setLoading(false)
+        return
+      }
+
+      // Call our API route — never call Supabase DB directly from client
+      const res = await fetch('/api/users/update', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: finalUserId,
+          college,
+          branch,
+          year: parseInt(year),
+          bio,
+          skills,
+          looking_for: [lookingFor],
+          onboarding_done: true,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || 'Something went wrong. Try again.')
+        setLoading(false)
+        return
+      }
+
+      router.push('/feed')
+
+    } catch (err) {
+      console.error('Submit error:', err)
+      setError('Network error. Check your connection.')
       setLoading(false)
-      return
     }
-
-    const res = await fetch('/api/users/update', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: finalUserId,   // ← uses finalUserId not userId state
-        college,
-        branch,
-        year: parseInt(year),
-        bio,
-        skills,
-        looking_for: [lookingFor],
-        onboarding_done: true,
-      }),
-    })
-
-    const data = await res.json()
-
-    if (!res.ok) {
-      setError(data.error || 'Something went wrong. Try again.')
-      setLoading(false)
-      return
-    }
-
-    router.push('/feed')
-
-  } catch (err) {
-    console.error('Submit error:', err)
-    setError('Network error. Check your connection.')
-    setLoading(false)
   }
-}
-  // Show loading spinner while checking session
+
+  // Loading screen while checking session
   if (pageLoading) {
     return (
       <main style={{ backgroundColor: '#0f0f1a', minHeight: '100vh' }}

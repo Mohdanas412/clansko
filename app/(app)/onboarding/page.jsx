@@ -65,13 +65,13 @@ export default function OnboardingPage() {
             return
           }
 
-          ('userId from session:', sessionUserId)
+          //('userId from session:', sessionUserId)
           setUserId(sessionUserId)
           setPageLoading(false)
           return
         }
 
-        ('userId from getUser:', user.id)
+        //('userId from getUser:', user.id)
 
         // Check if onboarding already done
         const { data: profile } = await supabase

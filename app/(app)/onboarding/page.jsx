@@ -2,7 +2,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createBrowserClient } from '@supabase/ssr'
 
 const BRANCHES = [
   'Computer Science', 'Information Technology', 'Electronics & Communication',
@@ -24,6 +24,12 @@ const LOOKING_FOR_OPTIONS = [
 
 export default function OnboardingPage() {
   const router = useRouter()
+
+  // Always use createBrowserClient in client components — never lib/supabase.js
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  )
 
   const [step, setStep]           = useState(1)
   const [userId, setUserId]       = useState(null)

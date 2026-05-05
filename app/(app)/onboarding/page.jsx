@@ -125,59 +125,64 @@ export default function OnboardingPage() {
   }
 
   async function handleSubmit() {
-    setError('')
-    if (!lookingFor) return setError('Please select what you are looking for.')
+  setError('')
+  if (!lookingFor) return setError('Please select what you are looking for.')
 
-    // Final check — get userId fresh from session if state is null
-    let finalUserId = userId
+  setLoading(true)
+
+  try {
+    // THIS PART IS MISSING — get userId fresh
+    let finalUserId = null
+
+    const { data: userData } = await supabase.auth.getUser()
+    if (userData?.user?.id) {
+      finalUserId = userData.user.id
+    }
+
     if (!finalUserId) {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session) return setError('Session expired. Please log in again.')
-        finalUserId = session.user.id
-      } else {
-        finalUserId = user.id
+      const { data: sessionData } = await supabase.auth.getSession()
+      if (sessionData?.session?.user?.id) {
+        finalUserId = sessionData.session.user.id
       }
     }
 
-    ('Submitting with userId:', finalUserId)
-    setLoading(true)
-
-    try {
-      const res = await fetch('/api/users/update', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: finalUserId,
-          college,
-          branch,
-          year: parseInt(year),
-          bio,
-          skills,
-          looking_for: [lookingFor],
-          onboarding_done: true,
-        }),
-      })
-
-      const data = await res.json()
-      ('Update response:', data)
-
-      if (!res.ok) {
-        setError(data.error || 'Something went wrong. Try again.')
-        setLoading(false)
-        return
-      }
-
-      router.push('/feed')
-
-    } catch (err) {
-      console.error('Submit error:', err)
-      setError('Network error. Check your connection.')
+    if (!finalUserId) {
+      setError('Session expired. Please log in again.')
       setLoading(false)
+      return
     }
-  }
 
+    const res = await fetch('/api/users/update', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: finalUserId,   // ← uses finalUserId not userId state
+        college,
+        branch,
+        year: parseInt(year),
+        bio,
+        skills,
+        looking_for: [lookingFor],
+        onboarding_done: true,
+      }),
+    })
+
+    const data = await res.json()
+
+    if (!res.ok) {
+      setError(data.error || 'Something went wrong. Try again.')
+      setLoading(false)
+      return
+    }
+
+    router.push('/feed')
+
+  } catch (err) {
+    console.error('Submit error:', err)
+    setError('Network error. Check your connection.')
+    setLoading(false)
+  }
+}
   // Show loading spinner while checking session
   if (pageLoading) {
     return (

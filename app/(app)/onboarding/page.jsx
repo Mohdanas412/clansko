@@ -148,8 +148,9 @@ export default function OnboardingPage() {
         setLoading(false)
         return
       }
-
-      router.push('/feed')
+      // Use window.location instead of router.push
+      // router.push sometimes fails after auth state changes in production
+      window.location.href = '/feed'
 
     } catch (err) {
       console.error('Submit error:', err)

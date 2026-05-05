@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import Link from 'next/link'
+import toast from 'react-hot-toast'
 
 export default function ExplorePage() {
   // ── State ──────────────────────────────────────────────────────────────────
@@ -55,14 +56,15 @@ export default function ExplorePage() {
       }),
     })
     const data = await res.json()
-    if (data.error) { alert(data.error); return }
+    if (data.error) { toast.error(data.error); return }
     setConnections(prev =>
       prev.map(c =>
         c.connectionId === connectionId ? { ...c, status: 'accepted' } : c
       )
     )
+    toast.success('Connected! 🎉')
   } catch (err) {
-    alert('Something went wrong.')
+    toast.error('Something went wrong.')
   }
 }
 
@@ -111,7 +113,7 @@ export default function ExplorePage() {
       })
       const data = await res.json()
       if (data.error) {
-        alert(data.error)
+        toast.error(data.error)
         return
       }
       // Optimistic update — add this new connection to local state immediately
@@ -125,8 +127,9 @@ export default function ExplorePage() {
           otherUser: { id: receiverId },
         },
       ])
+      toast.success('Request sent!')
     } catch (err) {
-      alert('Something went wrong. Please try again.')
+      toast.error('Something went wrong. Please try again.')
     } finally {
       setConnectingTo(null)
     }

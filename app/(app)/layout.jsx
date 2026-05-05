@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
 import { useRouter } from 'next/navigation'
+import { Toaster } from 'react-hot-toast'
 
 export default function AppLayout({ children }) {
   const pathname = usePathname()
@@ -70,6 +71,7 @@ export default function AppLayout({ children }) {
           <Link href="/feed" style={navStyle('/feed')}>Feed</Link>
           <Link href="/explore" style={navStyle('/explore')}>Explore</Link>
           <Link href="/messages" style={navStyle('/messages')}>Messages</Link>
+          <Link href="/goals" style={navStyle('/goals')}>Goals</Link>
         </div>
 
         {/* Right: profile + logout */}
@@ -95,10 +97,35 @@ export default function AppLayout({ children }) {
       </nav>
 
       {/* ── Page content ── */}
-      <main>
-        {children}
-      </main>
+      <main>{children}</main>
 
+      {/* Toast notifications — sits at app level so any page can trigger it */}
+      <Toaster
+        position="bottom-center"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#16213e',
+            color: '#f8fafc',
+            border: '1px solid #2a2a4a',
+            borderRadius: '8px',
+            fontSize: '14px',
+            letterSpacing: '0.05em',
+          },
+          success: {
+            iconTheme: {
+              primary: '#6c63ff',
+              secondary: '#f8fafc',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: '#f8fafc',
+            },
+          },
+        }}
+      />
     </div>
   )
 }

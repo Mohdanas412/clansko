@@ -6,7 +6,7 @@
 
 import { useState, useEffect } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
-
+import toast from 'react-hot-toast'
 // ─── Helper: get ISO week key like "2025-W18" from any date ──────────────────
 function getWeekKey(date) {
   const d = new Date(date)
@@ -131,9 +131,11 @@ export default function GoalsPage() {
         // Optimistic-style: append to local state immediately
         setGoals(prev => [...prev, json.data])
         setNewGoalText('')  // clear input
+        toast.success('Goal added!')
       }
     } catch (err) {
       setAddError('Something went wrong. Try again.')
+      toast.error('Something went wrong. Try again.')
     } finally {
       setAdding(false)
     }
@@ -186,12 +188,19 @@ export default function GoalsPage() {
         setGoals(prev =>
           prev.map(g => (g.id === goal.id ? json.data : g))
         )
+        // Toast based on what action was taken
+        if (newStatus === 'done') {
+          toast.success(doneCount + 1 === 3 ? '🎯 All goals done!' : 'Goal complete! 🔥')
+        } else {
+          toast('Goal unchecked', { icon: '↩️' })
+        }
       }
     } catch (err) {
       // Revert on network error too
       setGoals(prev =>
         prev.map(g => (g.id === goal.id ? goal : g))
       )
+      toast.error('Something went wrong. Try again.')
       setError('Something went wrong. Try again.')
     } finally {
       setUpdatingId(null)

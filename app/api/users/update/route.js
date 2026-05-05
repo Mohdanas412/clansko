@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 export async function PATCH(request) {
   try {
     const body = await request.json()
-    console.log('Update API received body:', body)
+    ('Update API received body:', body)
 
     const {
       userId,
@@ -33,7 +33,7 @@ export async function PATCH(request) {
     if (looking_for !== undefined)     updates.looking_for = looking_for
     if (onboarding_done !== undefined) updates.onboarding_done = onboarding_done
 
-    console.log('Running update with:', { userId, updates })
+    ('Running update with:', { userId, updates })
 
     const { data, error } = await supabase
       .from('users')
@@ -47,7 +47,7 @@ export async function PATCH(request) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    console.log('Update success:', data)
+    ('Update success:', data)
     return NextResponse.json({ data }, { status: 200 })
 
   } catch (err) {

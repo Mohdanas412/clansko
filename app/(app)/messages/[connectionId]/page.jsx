@@ -78,9 +78,18 @@ const currentUserRef = useRef(null)
           : json.data.senderId
 
       // Fetch the other user's profile
+      // Fetch the other user's profile
       const userRes = await fetch(`/api/users/${otherId}`)
       const userJson = await userRes.json()
       if (userRes.ok) setOtherUser(userJson.data)
+
+      // Mark all their messages as read now that we've opened the chat
+      // This clears the unread badge on the inbox page
+      await fetch('/api/messages/read', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ connectionId, userId: currentUser.id }),
+      })
 
     } catch (err) {
       setError('Something went wrong loading messages.')

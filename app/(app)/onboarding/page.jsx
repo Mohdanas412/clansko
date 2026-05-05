@@ -65,13 +65,13 @@ export default function OnboardingPage() {
             return
           }
 
-          console.log('userId from session:', sessionUserId)
+          ('userId from session:', sessionUserId)
           setUserId(sessionUserId)
           setPageLoading(false)
           return
         }
 
-        console.log('userId from getUser:', user.id)
+        ('userId from getUser:', user.id)
 
         // Check if onboarding already done
         const { data: profile } = await supabase
@@ -135,7 +135,7 @@ export default function OnboardingPage() {
       }
     }
 
-    console.log('Submitting with userId:', finalUserId)
+    ('Submitting with userId:', finalUserId)
     setLoading(true)
 
     try {
@@ -155,7 +155,7 @@ export default function OnboardingPage() {
       })
 
       const data = await res.json()
-      console.log('Update response:', data)
+      ('Update response:', data)
 
       if (!res.ok) {
         setError(data.error || 'Something went wrong. Try again.')

@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
+import { MessageItemSkeleton } from '@/components/Skeleton'
 
 export default function MessagesPage() {
   const router = useRouter()
@@ -131,15 +132,14 @@ export default function MessagesPage() {
 
   if (loading) {
     return (
-      <div style={{
-        minHeight: '80vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-        <p style={{ color: '#94a3b8', fontSize: '15px', letterSpacing: '0.08em' }}>
-          Loading conversations...
-        </p>
+      <div style={{ maxWidth: '680px', margin: '0 auto', padding: '32px 16px' }}>
+        <div style={{ width: '160px', height: '22px', backgroundColor: '#1e2a4a', borderRadius: '6px', marginBottom: '8px' }} />
+        <div style={{ width: '200px', height: '14px', backgroundColor: '#1e2a4a', borderRadius: '6px', marginBottom: '32px' }} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          <MessageItemSkeleton />
+          <MessageItemSkeleton />
+          <MessageItemSkeleton />
+        </div>
       </div>
     )
   }

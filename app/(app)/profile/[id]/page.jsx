@@ -7,6 +7,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { UserCardSkeleton } from '@/components/Skeleton'
 
 export default function ProfilePage({ params }) {
   const router = useRouter()
@@ -49,9 +50,48 @@ export default function ProfilePage({ params }) {
   // ── Loading state ──
   if (loading) {
     return (
-      <main style={{ backgroundColor: '#0f0f1a', minHeight: '100vh' }}
-        className="flex items-center justify-center">
-        <p style={{ color: '#94a3b8' }} className="text-sm">Loading profile...</p>
+      <main style={{ backgroundColor: '#0f0f1a', minHeight: '100vh', padding: '48px 16px' }}>
+        <div style={{ maxWidth: '560px', margin: '0 auto' }}>
+          {/* Back button skeleton */}
+          <div style={{ width: '60px', height: '14px', backgroundColor: '#1e2a4a', borderRadius: '6px', marginBottom: '32px' }} />
+          {/* Profile card skeleton — reuse UserCardSkeleton shape */}
+          <div style={{
+            backgroundColor: '#16213e',
+            borderRadius: '16px',
+            padding: '24px',
+            border: '1px solid #2a2a4a',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '20px',
+          }}>
+            {/* Avatar + name */}
+            <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+              <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: '#1e2a4a', flexShrink: 0 }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
+                <div style={{ width: '160px', height: '20px', backgroundColor: '#1e2a4a', borderRadius: '6px' }} />
+                <div style={{ width: '120px', height: '14px', backgroundColor: '#1e2a4a', borderRadius: '6px' }} />
+              </div>
+            </div>
+            {/* Divider */}
+            <div style={{ height: '1px', backgroundColor: '#2a2a4a' }} />
+            {/* Branch + year */}
+            <div style={{ display: 'flex', gap: '24px' }}>
+              <div style={{ width: '80px', height: '14px', backgroundColor: '#1e2a4a', borderRadius: '6px' }} />
+              <div style={{ width: '60px', height: '14px', backgroundColor: '#1e2a4a', borderRadius: '6px' }} />
+            </div>
+            {/* Bio lines */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ width: '100%', height: '14px', backgroundColor: '#1e2a4a', borderRadius: '6px' }} />
+              <div style={{ width: '85%', height: '14px', backgroundColor: '#1e2a4a', borderRadius: '6px' }} />
+            </div>
+            {/* Skills */}
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <div style={{ width: '70px', height: '26px', backgroundColor: '#1e2a4a', borderRadius: '999px' }} />
+              <div style={{ width: '90px', height: '26px', backgroundColor: '#1e2a4a', borderRadius: '999px' }} />
+              <div style={{ width: '60px', height: '26px', backgroundColor: '#1e2a4a', borderRadius: '999px' }} />
+            </div>
+          </div>
+        </div>
       </main>
     )
   }

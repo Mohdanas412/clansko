@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
+import { UserCardSkeleton } from '@/components/Skeleton'
 
 export default function ExplorePage() {
   // ── State ──────────────────────────────────────────────────────────────────
@@ -159,16 +160,29 @@ export default function ExplorePage() {
   )].sort()
 
   // ── Loading state ──────────────────────────────────────────────────────────
-  if (loading) {
+ if (loading) {
     return (
-      <div style={{
-        minHeight: '100vh',
-        backgroundColor: '#0f0f1a',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-        <p style={{ color: '#94a3b8', fontSize: '16px' }}>Loading builders...</p>
+      <div style={{ minHeight: '100vh', backgroundColor: '#0f0f1a', padding: '32px 24px' }}>
+        <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+          {/* Header skeleton */}
+          <div style={{ marginBottom: '32px' }}>
+            <div style={{ width: '200px', height: '32px', backgroundColor: '#1e2a4a', borderRadius: '6px', marginBottom: '8px' }} />
+            <div style={{ width: '150px', height: '16px', backgroundColor: '#1e2a4a', borderRadius: '6px' }} />
+          </div>
+          {/* Card grid skeleton */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+            gap: '20px',
+          }}>
+            <UserCardSkeleton />
+            <UserCardSkeleton />
+            <UserCardSkeleton />
+            <UserCardSkeleton />
+            <UserCardSkeleton />
+            <UserCardSkeleton />
+          </div>
+        </div>
       </div>
     )
   }

@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
-
+import { PostCardSkeleton } from '@/components/Skeleton'
 // ─── STAGE OPTIONS for the create post form ───────────────────────────────
 const STAGE_OPTIONS = [
   { value: 'idea', label: '💡 Just an Idea' },
@@ -247,9 +247,11 @@ export default function FeedPage() {
 
         {/* ── LOADING STATE ─────────────────────────────────────────────── */}
         {loading && (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: '#94a3b8' }}>
-            Loading posts...
-          </div>
+          <>
+            <PostCardSkeleton />
+            <PostCardSkeleton />
+            <PostCardSkeleton />
+          </>
         )}
 
         {/* ── ERROR STATE ───────────────────────────────────────────────── */}

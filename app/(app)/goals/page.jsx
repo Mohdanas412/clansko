@@ -7,6 +7,7 @@
 import { useState, useEffect } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import toast from 'react-hot-toast'
+import { GoalsSkeleton } from '@/components/Skeleton'
 // ─── Helper: get ISO week key like "2025-W18" from any date ──────────────────
 function getWeekKey(date) {
   const d = new Date(date)
@@ -219,18 +220,7 @@ export default function GoalsPage() {
   }
 
   // ─── Loading State ────────────────────────────────────────────────────────
-  if (loading) {
-    return (
-      <div style={{
-        minHeight: '100vh', backgroundColor: '#0f0f1a',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>
-        <p style={{ color: '#94a3b8', fontSize: '16px', letterSpacing: '0.08em' }}>
-          Loading goals...
-        </p>
-      </div>
-    )
-  }
+  if (loading) return <GoalsSkeleton />
 
   // ─── Error State ──────────────────────────────────────────────────────────
   if (error && goals.length === 0) {

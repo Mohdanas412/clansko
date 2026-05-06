@@ -241,7 +241,7 @@ export default function GoalsPage() {
     <div style={{
       minHeight: '100vh',
       backgroundColor: '#0f0f1a',
-      padding: '40px 24px',
+      padding: 'clamp(24px, 5vw, 40px) 16px',
       fontFamily: 'Inter, sans-serif',
     }}>
       <div style={{ maxWidth: '600px', margin: '0 auto' }}>

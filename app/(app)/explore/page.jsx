@@ -212,17 +212,17 @@ export default function ExplorePage() {
       <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
 
         {/* ── Header ── */}
-        <div style={{ marginBottom: '32px' }}>
+        <div style={{ marginBottom: '24px' }}>
           <h1 style={{
-            fontSize: '32px',
+            fontSize: 'clamp(22px, 5vw, 32px)',
             fontWeight: 500,
             color: '#f8fafc',
-            marginBottom: '8px',
+            marginBottom: '6px',
             letterSpacing: '0.08em',
           }}>
             Find Your Clan
           </h1>
-          <p style={{ fontSize: '16px', color: '#94a3b8' }}>
+          <p style={{ fontSize: '14px', color: '#94a3b8' }}>
             {users.length} builder{users.length !== 1 ? 's' : ''} on ClanSko
           </p>
         </div>
@@ -230,8 +230,8 @@ export default function ExplorePage() {
         {/* ── Search + Filter bar ── */}
         <div style={{
           display: 'flex',
-          gap: '12px',
-          marginBottom: '32px',
+          gap: '10px',
+          marginBottom: '24px',
           flexWrap: 'wrap',
         }}>
           {/* Search input */}

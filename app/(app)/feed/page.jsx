@@ -215,35 +215,36 @@ export default function FeedPage() {
       <main style={{ maxWidth: '680px', margin: '0 auto', padding: '32px 16px' }}>
 
         {/* Header row with Post Idea button */}
-  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-    <div>
-      <h1 style={{ fontSize: '32px', fontWeight: 500, color: '#f8fafc', letterSpacing: '0.08em' }}>
-        Builder Feed
-      </h1>
-      <p style={{ fontSize: '16px', color: '#94a3b8', marginTop: '4px' }}>
-        Ideas, projects, and teams forming in real time.
-      </p>
-    </div>
-
-    {/* Post Idea button */}
-    <button
-      onClick={() => setShowModal(true)}
-      style={{
-        backgroundColor: '#6c63ff',
-        color: '#fff',
-        border: 'none',
-        borderRadius: '8px',
-        padding: '10px 20px',
-        fontSize: '14px',
-        fontWeight: 500,
-        cursor: 'pointer',
-        letterSpacing: '0.08em',
-        whiteSpace: 'nowrap',
-      }}
-    >
-      + Post Idea
-    </button>
-  </div>
+        <div style={{ marginBottom: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+            <div>
+              <h1 style={{ fontSize: 'clamp(22px, 5vw, 32px)', fontWeight: 500, color: '#f8fafc', letterSpacing: '0.08em' }}>
+                Builder Feed
+              </h1>
+              <p style={{ fontSize: '14px', color: '#94a3b8', marginTop: '4px' }}>
+                Ideas, projects, and teams forming in real time.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowModal(true)}
+              style={{
+                backgroundColor: '#6c63ff',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '10px 16px',
+                fontSize: '13px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                letterSpacing: '0.08em',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}
+            >
+              + Post Idea
+            </button>
+          </div>
+        </div>
 
         {/* ── LOADING STATE ─────────────────────────────────────────────── */}
         {loading && (

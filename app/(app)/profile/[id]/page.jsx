@@ -118,7 +118,7 @@ export default function ProfilePage({ params }) {
   const isOwnProfile = currentUser?.id === profile?.id
 
   return (
-    <main style={{ backgroundColor: '#0f0f1a', minHeight: '100vh' }} className="px-4 py-12">
+    <main style={{ backgroundColor: '#0f0f1a', minHeight: '100vh', padding: '24px 16px' }}>
       <div className="max-w-xl mx-auto">
 
         {/* Back button */}

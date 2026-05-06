@@ -138,11 +138,19 @@ export default function AppLayout({ children }) {
                 padding: '6px 0',
               }}
             >
-              <span style={{ fontSize: '18px', lineHeight: 1 }}>{tab.icon}</span>
+              {isActive && (
+                <div style={{
+                  width: '4px', height: '4px',
+                  borderRadius: '50%',
+                  backgroundColor: '#6c63ff',
+                  marginBottom: '2px',
+                }} />
+              )}
               <span style={{
-                fontSize: '10px',
+                fontSize: '11px',
                 color: isActive ? '#6c63ff' : '#94a3b8',
                 fontWeight: isActive ? 500 : 400,
+                letterSpacing: '0.05em',
               }}>
                 {tab.label}
               </span>
@@ -165,8 +173,7 @@ export default function AppLayout({ children }) {
             padding: '6px 0',
           }}
         >
-          <span style={{ fontSize: '18px', lineHeight: 1 }}>🚪</span>
-          <span style={{ fontSize: '10px', color: '#94a3b8' }}>Logout</span>
+          <span style={{ fontSize: '11px', color: '#94a3b8', letterSpacing: '0.05em' }}>Logout</span>
         </button>
       </nav>
 

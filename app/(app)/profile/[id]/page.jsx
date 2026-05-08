@@ -6,12 +6,17 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createBrowserClient } from '@supabase/ssr'
 import { UserCardSkeleton } from '@/components/Skeleton'
 
 export default function ProfilePage({ params }) {
   const router = useRouter()
-  const { id } = params  // the userId from the URL
+  const { id } = params
+
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  )
 
   const [profile, setProfile]     = useState(null)
   const [currentUser, setCurrentUser] = useState(null)
@@ -158,7 +163,7 @@ export default function ProfilePage({ params }) {
             {/* Edit button — only on own profile */}
             {isOwnProfile && (
               <button
-                onClick={() => router.push('/onboarding')}
+                onClick={() => router.push('/profile/edit')}
                 className="px-4 py-2 rounded-lg text-xs font-medium"
                 style={{ backgroundColor: 'transparent', border: '1px solid #6c63ff', color: '#a78bfa', cursor: 'pointer' }}
               >

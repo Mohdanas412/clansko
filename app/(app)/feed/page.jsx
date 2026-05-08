@@ -1,6 +1,4 @@
 // app/(app)/feed/page.jsx
-// The main feed — shows all posts, create post modal, reactions
-
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -8,82 +6,69 @@ import { createBrowserClient } from '@supabase/ssr'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { PostCardSkeleton } from '@/components/Skeleton'
-// ─── STAGE OPTIONS for the create post form ───────────────────────────────
+
 const STAGE_OPTIONS = [
-  { value: 'idea', label: '💡 Just an Idea' },
-  { value: 'validation', label: '🔍 Validating' },
-  { value: 'building', label: '🛠️ Building' },
-  { value: 'launched', label: '🚀 Launched' },
+  { value: 'idea', label: 'Idea' },
+  { value: 'validation', label: 'Validating' },
+  { value: 'building', label: 'Building' },
+  { value: 'launched', label: 'Launched' },
 ]
 
-// ─── LOOKING FOR OPTIONS ───────────────────────────────────────────────────
 const LOOKING_FOR_OPTIONS = [
   'Co-founder', 'Developer', 'Designer', 'Marketer',
   'Feedback', 'Mentor', 'Investor'
 ]
 
-// ─── REACTION TYPES ───────────────────────────────────────────────────────
 const REACTIONS = [
   { type: 'fire',      emoji: '🔥', label: 'Fire' },
   { type: 'eyes',      emoji: '👀', label: 'Interested' },
-  { type: 'handshake', emoji: '🤝', label: 'Want to collab' },
+  { type: 'handshake', emoji: '🤝', label: 'Collab' },
 ]
 
-// ─── HELPER: format date to "2 hours ago" style ───────────────────────────
+const STAGE_STYLES = {
+  idea:       { bg: '#1A1A1A', color: '#9A9A8A', border: '#2A2A2A' },
+  validation: { bg: '#1A2A1A', color: '#4ADE80', border: '#166534' },
+  building:   { bg: '#1A1F2A', color: '#60A5FA', border: '#1D4ED8' },
+  launched:   { bg: '#2A1A0A', color: '#F97316', border: '#9A3412' },
+}
+
 function timeAgo(dateString) {
   const now = new Date()
   const then = new Date(dateString)
   const seconds = Math.floor((now - then) / 1000)
-  if (seconds < 60)   return 'just now'
+  if (seconds < 60) return 'just now'
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`
   return `${Math.floor(seconds / 86400)}d ago`
 }
 
-// ══════════════════════════════════════════════════════════════════════════
-// MAIN PAGE COMPONENT
-// ══════════════════════════════════════════════════════════════════════════
 export default function FeedPage() {
-  // Create supabase client correctly for client components
   const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-)
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  )
   const router = useRouter()
 
-  // ─── State ──────────────────────────────────────────────────────────────
-  const [currentUser, setCurrentUser]   = useState(null)   // logged in user
-  const [posts, setPosts]               = useState([])      // all posts
-  const [loading, setLoading]           = useState(true)    // initial load
-  const [error, setError]               = useState(null)    // fetch error
-  const [showModal, setShowModal]       = useState(false)   // create post modal
-  const [expandedPost, setExpandedPost] = useState(null)    // clicked post (full view)
-
-  // ─── Create post form state ──────────────────────────────────────────────
-  const [form, setForm] = useState({
-    title: '',
-    description: '',
-    stage: '',
-    looking_for: [],
-  })
+  const [currentUser, setCurrentUser] = useState(null)
+  const [posts, setPosts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [showModal, setShowModal] = useState(false)
+  const [expandedPost, setExpandedPost] = useState(null)
+  const [form, setForm] = useState({ title: '', description: '', stage: '', looking_for: [] })
   const [formLoading, setFormLoading] = useState(false)
-  const [formError, setFormError]     = useState(null)
+  const [formError, setFormError] = useState(null)
 
-  // ─── On mount: get current user then fetch posts ─────────────────────────
   useEffect(() => {
     async function init() {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    router.push('/login')
-    return
-  }
-  setCurrentUser(user)
-  await fetchPosts()  // make sure this line exists and is awaited
-}
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.push('/login'); return }
+      setCurrentUser(user)
+      await fetchPosts()
+    }
     init()
   }, [])
 
-  // ─── Fetch all posts from our API ────────────────────────────────────────
   async function fetchPosts() {
     try {
       setLoading(true)
@@ -99,7 +84,6 @@ export default function FeedPage() {
     }
   }
 
-  // ─── Toggle looking_for chip in create form ───────────────────────────────
   function toggleLookingFor(value) {
     setForm(prev => ({
       ...prev,
@@ -109,23 +93,12 @@ export default function FeedPage() {
     }))
   }
 
-  // ─── Submit create post form ──────────────────────────────────────────────
   async function handleCreatePost() {
-   
-    // Guard: if currentUser not loaded yet, try to get it again
-  if (!currentUser) {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      setFormError('You must be logged in to post.')
-      return
+    if (!currentUser) {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { setFormError('You must be logged in.'); return }
+      setCurrentUser(user)
     }
-    setCurrentUser(user)
-    // Small delay to let state update
-    await new Promise(r => setTimeout(r, 100))
-  }
-
-  // ... rest of the function stays exactly the same
-
     if (!form.title.trim() || !form.description.trim() || !form.stage) {
       setFormError('Title, description, and stage are required.')
       return
@@ -146,8 +119,6 @@ export default function FeedPage() {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Failed to create post')
-
-      /// Reset form + close modal + refresh feed
       setForm({ title: '', description: '', stage: '', looking_for: [] })
       setShowModal(false)
       toast.success('Idea posted! 🚀')
@@ -160,7 +131,6 @@ export default function FeedPage() {
     }
   }
 
-  // ─── Handle reaction click ────────────────────────────────────────────────
   async function handleReact(postId, type) {
     if (!currentUser) return
     try {
@@ -171,33 +141,21 @@ export default function FeedPage() {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error)
-
-      // Optimistically update the posts list in state
-      // instead of refetching everything
       setPosts(prev => prev.map(post => {
         if (post.id !== postId) return post
-
         const oldReactions = { ...post.reactions }
         const oldUserReaction = post.reactions_by_user?.[currentUser.id]
-
-        // Remove old reaction count if user had one
         if (oldUserReaction) {
           oldReactions[oldUserReaction] = Math.max(0, (oldReactions[oldUserReaction] || 1) - 1)
         }
-
-        // Add new reaction count unless it was a toggle-off
         const newUserReaction = json.data.action === 'removed' ? null : type
         if (newUserReaction) {
           oldReactions[newUserReaction] = (oldReactions[newUserReaction] || 0) + 1
         }
-
         return {
           ...post,
           reactions: oldReactions,
-          reactions_by_user: {
-            ...post.reactions_by_user,
-            [currentUser.id]: newUserReaction,
-          }
+          reactions_by_user: { ...post.reactions_by_user, [currentUser.id]: newUserReaction },
         }
       }))
     } catch (err) {
@@ -205,40 +163,42 @@ export default function FeedPage() {
     }
   }
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // RENDER
-  // ══════════════════════════════════════════════════════════════════════════
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#0f0f1a', color: '#f8fafc' }}>
-
-      {/* ── MAIN CONTENT ─────────────────────────────────────────────────── */}
+    <div style={{ minHeight: '100vh', backgroundColor: '#111111' }}>
       <main style={{ maxWidth: '680px', margin: '0 auto', padding: '32px 16px' }}>
 
-        {/* Header row with Post Idea button */}
-        <div style={{ marginBottom: '24px' }}>
+        {/* Header */}
+        <div style={{ marginBottom: '28px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
             <div>
-              <h1 style={{ fontSize: 'clamp(22px, 5vw, 32px)', fontWeight: 500, color: '#f8fafc', letterSpacing: '0.08em' }}>
-                Builder Feed
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+                <div style={{ width: '28px', height: '3px', background: '#F97316', borderRadius: '2px' }} />
+                <span style={{ fontSize: '12px', color: '#F97316', letterSpacing: '0.1em', fontWeight: 500, textTransform: 'uppercase' }}>
+                  Builder Feed
+                </span>
+              </div>
+              <h1 style={{ fontSize: 'clamp(24px, 4vw, 32px)', fontWeight: 600, color: '#F5F0E8', letterSpacing: '-0.01em' }}>
+                What are people building?
               </h1>
-              <p style={{ fontSize: '14px', color: '#94a3b8', marginTop: '4px' }}>
+              <p style={{ fontSize: '14px', color: '#6A6A5A', marginTop: '4px' }}>
                 Ideas, projects, and teams forming in real time.
               </p>
             </div>
             <button
               onClick={() => setShowModal(true)}
               style={{
-                backgroundColor: '#6c63ff',
-                color: '#fff',
+                backgroundColor: '#F97316',
+                color: '#111',
                 border: 'none',
-                borderRadius: '8px',
-                padding: '10px 16px',
+                borderRadius: '6px',
+                padding: '10px 18px',
                 fontSize: '13px',
-                fontWeight: 500,
+                fontWeight: 600,
                 cursor: 'pointer',
-                letterSpacing: '0.08em',
                 whiteSpace: 'nowrap',
                 flexShrink: 0,
+                fontFamily: "'DM Sans', sans-serif",
+                transition: 'background 0.2s',
               }}
             >
               + Post Idea
@@ -246,7 +206,7 @@ export default function FeedPage() {
           </div>
         </div>
 
-        {/* ── LOADING STATE ─────────────────────────────────────────────── */}
+        {/* Loading */}
         {loading && (
           <>
             <PostCardSkeleton />
@@ -255,40 +215,42 @@ export default function FeedPage() {
           </>
         )}
 
-        {/* ── ERROR STATE ───────────────────────────────────────────────── */}
+        {/* Error */}
         {error && !loading && (
           <div style={{
-            backgroundColor: '#2d1b1b',
-            border: '1px solid #7f1d1d',
-            borderRadius: '12px',
+            backgroundColor: '#1A1A1A',
+            border: '1px solid #3A1A1A',
+            borderRadius: '10px',
             padding: '16px',
-            color: '#fca5a5',
+            color: '#FCA5A5',
             marginBottom: '24px',
+            fontSize: '14px',
           }}>
             {error}
-            <button
-              onClick={fetchPosts}
-              style={{ marginLeft: '12px', color: '#6c63ff', background: 'none', border: 'none', cursor: 'pointer' }}
-            >
+            <button onClick={fetchPosts} style={{ marginLeft: '12px', color: '#F97316', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px' }}>
               Retry
             </button>
           </div>
         )}
 
-        {/* ── EMPTY STATE ───────────────────────────────────────────────── */}
+        {/* Empty */}
         {!loading && !error && posts.length === 0 && (
           <div style={{
             textAlign: 'center',
-            padding: '60px 0',
-            color: '#94a3b8',
+            padding: '64px 0',
+            border: '1px dashed #2A2A2A',
+            borderRadius: '12px',
           }}>
-            <div style={{ fontSize: '40px', marginBottom: '16px' }}>🛠️</div>
-            <p style={{ fontSize: '16px', marginBottom: '8px', color: '#f8fafc' }}>No posts yet.</p>
-            <p style={{ fontSize: '14px' }}>Be the first builder to post an idea.</p>
+            <p style={{ fontSize: '16px', color: '#F5F0E8', marginBottom: '8px', fontWeight: 500 }}>
+              No posts yet.
+            </p>
+            <p style={{ fontSize: '14px', color: '#6A6A5A' }}>
+              Be the first builder to post an idea.
+            </p>
           </div>
         )}
 
-        {/* ── POST CARDS ────────────────────────────────────────────────── */}
+        {/* Posts */}
         {!loading && posts.map(post => (
           <PostCard
             key={post.id}
@@ -300,15 +262,19 @@ export default function FeedPage() {
         ))}
       </main>
 
-      {/* ── CREATE POST MODAL ─────────────────────────────────────────────── */}
+      {/* Create Post Modal */}
       {showModal && (
         <Modal onClose={() => { setShowModal(false); setFormError(null) }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 500, marginBottom: '24px', letterSpacing: '0.08em' }}>
-            Share Your Idea
-          </h2>
+          <div style={{ marginBottom: '24px' }}>
+            <h2 style={{ fontSize: '20px', fontWeight: 600, color: '#F5F0E8', marginBottom: '4px' }}>
+              Share your idea
+            </h2>
+            <p style={{ fontSize: '13px', color: '#6A6A5A' }}>
+              Tell the community what you're building.
+            </p>
+          </div>
 
-          {/* Title */}
-          <label style={labelStyle}>Idea Title *</label>
+          <label style={labelStyle}>TITLE *</label>
           <input
             placeholder="e.g. AI study partner for tier-3 colleges"
             value={form.title}
@@ -317,32 +283,32 @@ export default function FeedPage() {
             maxLength={100}
           />
 
-          {/* Description */}
-          <label style={labelStyle}>What are you building? *</label>
+          <label style={labelStyle}>DESCRIPTION *</label>
           <textarea
             placeholder="Describe the problem, your solution, and where you're at..."
             value={form.description}
             onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
-            style={{ ...inputStyle, height: '120px', resize: 'vertical' }}
+            style={{ ...inputStyle, height: '110px', resize: 'vertical' }}
             maxLength={1000}
           />
 
-          {/* Stage */}
-          <label style={labelStyle}>Stage *</label>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
+          <label style={labelStyle}>STAGE *</label>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px' }}>
             {STAGE_OPTIONS.map(opt => (
               <button
                 key={opt.value}
                 onClick={() => setForm(p => ({ ...p, stage: opt.value }))}
                 style={{
-                  padding: '8px 14px',
-                  borderRadius: '8px',
+                  padding: '7px 16px',
+                  borderRadius: '6px',
                   border: '1px solid',
                   fontSize: '13px',
                   cursor: 'pointer',
-                  backgroundColor: form.stage === opt.value ? '#6c63ff' : 'transparent',
-                  borderColor: form.stage === opt.value ? '#6c63ff' : '#2d3a5e',
-                  color: form.stage === opt.value ? '#fff' : '#94a3b8',
+                  fontFamily: "'DM Sans', sans-serif",
+                  backgroundColor: form.stage === opt.value ? '#F97316' : 'transparent',
+                  borderColor: form.stage === opt.value ? '#F97316' : '#2A2A2A',
+                  color: form.stage === opt.value ? '#111' : '#9A9A8A',
+                  fontWeight: form.stage === opt.value ? 600 : 400,
                   transition: 'all 0.15s',
                 }}
               >
@@ -351,8 +317,7 @@ export default function FeedPage() {
             ))}
           </div>
 
-          {/* Looking For */}
-          <label style={labelStyle}>Looking For (optional)</label>
+          <label style={labelStyle}>LOOKING FOR <span style={{ color: '#6A6A5A', textTransform: 'none', letterSpacing: 0 }}>(optional)</span></label>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '24px' }}>
             {LOOKING_FOR_OPTIONS.map(opt => (
               <button
@@ -360,13 +325,14 @@ export default function FeedPage() {
                 onClick={() => toggleLookingFor(opt)}
                 style={{
                   padding: '6px 12px',
-                  borderRadius: '8px',
+                  borderRadius: '6px',
                   border: '1px solid',
-                  fontSize: '13px',
+                  fontSize: '12px',
                   cursor: 'pointer',
-                  backgroundColor: form.looking_for.includes(opt) ? '#22d3ee22' : 'transparent',
-                  borderColor: form.looking_for.includes(opt) ? '#22d3ee' : '#2d3a5e',
-                  color: form.looking_for.includes(opt) ? '#22d3ee' : '#94a3b8',
+                  fontFamily: "'DM Sans', sans-serif",
+                  backgroundColor: form.looking_for.includes(opt) ? '#F9731615' : 'transparent',
+                  borderColor: form.looking_for.includes(opt) ? '#F97316' : '#2A2A2A',
+                  color: form.looking_for.includes(opt) ? '#F97316' : '#9A9A8A',
                   transition: 'all 0.15s',
                 }}
               >
@@ -375,36 +341,33 @@ export default function FeedPage() {
             ))}
           </div>
 
-          {/* Form error */}
           {formError && (
-            <p style={{ color: '#fca5a5', fontSize: '13px', marginBottom: '16px' }}>
-              {formError}
-            </p>
+            <p style={{ color: '#FCA5A5', fontSize: '13px', marginBottom: '16px' }}>{formError}</p>
           )}
 
-          {/* Submit */}
           <button
             onClick={handleCreatePost}
             disabled={formLoading}
             style={{
               width: '100%',
-              backgroundColor: formLoading ? '#4a4580' : '#6c63ff',
-              color: '#fff',
+              backgroundColor: formLoading ? '#2A2A2A' : '#F97316',
+              color: formLoading ? '#6A6A5A' : '#111',
               border: 'none',
               borderRadius: '8px',
-              padding: '12px',
+              padding: '13px',
               fontSize: '15px',
-              fontWeight: 500,
+              fontWeight: 600,
               cursor: formLoading ? 'not-allowed' : 'pointer',
-              letterSpacing: '0.08em',
+              fontFamily: "'DM Sans', sans-serif",
+              transition: 'all 0.2s',
             }}
           >
-            {formLoading ? 'Posting...' : 'Post Idea'}
+            {formLoading ? 'Posting...' : 'Post Idea →'}
           </button>
         </Modal>
       )}
 
-      {/* ── EXPANDED POST VIEW ────────────────────────────────────────────── */}
+      {/* Expanded Post */}
       {expandedPost && (
         <ExpandedPost
           post={expandedPost}
@@ -412,11 +375,8 @@ export default function FeedPage() {
           onClose={() => setExpandedPost(null)}
           onReact={handleReact}
           onCommentAdded={(postId) => {
-            // Increment comment count in feed without refetching
             setPosts(prev => prev.map(p =>
-              p.id === postId
-                ? { ...p, comment_count: (p.comment_count || 0) + 1 }
-                : p
+              p.id === postId ? { ...p, comment_count: (p.comment_count || 0) + 1 } : p
             ))
           }}
         />
@@ -425,81 +385,69 @@ export default function FeedPage() {
   )
 }
 
-// ══════════════════════════════════════════════════════════════════════════
-// POST CARD COMPONENT
-// ══════════════════════════════════════════════════════════════════════════
+// ── Post Card ──
 function PostCard({ post, currentUserId, onReact, onExpand }) {
   const userReaction = post.reactions_by_user?.[currentUserId]
-
-  const stageColors = {
-    idea:       { bg: '#1a1a2e', text: '#a78bfa', border: '#3d2f7f' },
-    validation: { bg: '#1a2a1a', text: '#34d399', border: '#1a4a2a' },
-    building:   { bg: '#1a2a3a', text: '#22d3ee', border: '#1a3a4a' },
-    launched:   { bg: '#2a1a1a', text: '#f97316', border: '#4a2a1a' },
-  }
-  const stageStyle = stageColors[post.stage] || stageColors.idea
+  const stage = STAGE_STYLES[post.stage] || STAGE_STYLES.idea
 
   return (
     <div
       style={{
-        backgroundColor: '#16213e',
+        backgroundColor: '#161616',
         borderRadius: '12px',
-        padding: '20px',
-        marginBottom: '16px',
-        border: '1px solid #1e2a4a',
-        transition: 'border-color 0.15s',
+        padding: '20px 24px',
+        marginBottom: '12px',
+        border: '1px solid #1E1E1E',
+        transition: 'border-color 0.2s',
         cursor: 'pointer',
       }}
-      onMouseEnter={e => e.currentTarget.style.borderColor = '#6c63ff55'}
-      onMouseLeave={e => e.currentTarget.style.borderColor = '#1e2a4a'}
+      onMouseEnter={e => e.currentTarget.style.borderColor = '#2A2A2A'}
+      onMouseLeave={e => e.currentTarget.style.borderColor = '#1E1E1E'}
     >
       {/* Author row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-        {/* Avatar */}
         <div style={{
           width: '36px', height: '36px', borderRadius: '50%',
-          backgroundColor: '#6c63ff33',
+          backgroundColor: '#F9731620',
+          border: '1px solid #F9731640',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '14px', fontWeight: 600, color: '#a78bfa', flexShrink: 0,
+          fontSize: '14px', fontWeight: 600, color: '#F97316', flexShrink: 0,
         }}>
           {post.users?.name?.charAt(0).toUpperCase() || '?'}
         </div>
-        <div>
-          <p style={{ fontSize: '14px', fontWeight: 500, color: '#f8fafc', margin: 0 }}>
+        <div style={{ flex: 1 }}>
+          <p style={{ fontSize: '14px', fontWeight: 500, color: '#F5F0E8', margin: 0 }}>
             {post.users?.name || 'Unknown'}
           </p>
-          <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0 }}>
-            {post.users?.college || 'College not set'} · {timeAgo(post.created_at)}
+          <p style={{ fontSize: '12px', color: '#6A6A5A', margin: 0 }}>
+            {post.users?.college || ''} · {timeAgo(post.created_at)}
           </p>
         </div>
-        {/* Stage badge */}
-        <div style={{
-          marginLeft: 'auto',
-          padding: '4px 10px',
-          borderRadius: '20px',
+        <span style={{
+          padding: '3px 10px',
+          borderRadius: '4px',
           fontSize: '11px',
           fontWeight: 500,
-          backgroundColor: stageStyle.bg,
-          color: stageStyle.text,
-          border: `1px solid ${stageStyle.border}`,
+          backgroundColor: stage.bg,
+          color: stage.color,
+          border: `1px solid ${stage.border}`,
           letterSpacing: '0.06em',
           textTransform: 'uppercase',
         }}>
           {post.stage}
-        </div>
+        </span>
       </div>
 
       {/* Title + description */}
       <h3
         onClick={onExpand}
-        style={{ fontSize: '16px', fontWeight: 500, marginBottom: '8px', color: '#f8fafc', lineHeight: 1.4 }}
+        style={{ fontSize: '16px', fontWeight: 600, marginBottom: '6px', color: '#F5F0E8', lineHeight: 1.4 }}
       >
         {post.title}
       </h3>
       <p style={{
-        fontSize: '14px', color: '#94a3b8', marginBottom: '14px',
-        lineHeight: 1.6,
-        // Truncate to 3 lines
+        fontSize: '14px', color: '#6A6A5A', marginBottom: '14px',
+        lineHeight: 1.7,
         display: '-webkit-box',
         WebkitLineClamp: 3,
         WebkitBoxOrient: 'vertical',
@@ -508,17 +456,18 @@ function PostCard({ post, currentUserId, onReact, onExpand }) {
         {post.description}
       </p>
 
-      {/* Looking for chips */}
+      {/* Looking for */}
       {post.looking_for?.length > 0 && (
-        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '16px' }}>
           {post.looking_for.map(item => (
             <span key={item} style={{
               padding: '3px 10px',
-              borderRadius: '20px',
+              borderRadius: '4px',
               fontSize: '11px',
-              backgroundColor: '#22d3ee11',
-              color: '#22d3ee',
-              border: '1px solid #22d3ee33',
+              backgroundColor: '#F9731610',
+              color: '#F97316',
+              border: '1px solid #F9731630',
+              fontWeight: 500,
             }}>
               {item}
             </span>
@@ -526,44 +475,42 @@ function PostCard({ post, currentUserId, onReact, onExpand }) {
         </div>
       )}
 
-      {/* Reactions + comment count row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+      {/* Reactions */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingTop: '14px', borderTop: '1px solid #1E1E1E' }}>
         {REACTIONS.map(r => (
           <button
             key={r.type}
             onClick={(e) => { e.stopPropagation(); onReact(post.id, r.type) }}
-            title={r.label}
             style={{
               display: 'flex', alignItems: 'center', gap: '5px',
               padding: '5px 10px',
-              borderRadius: '8px',
+              borderRadius: '6px',
               border: '1px solid',
-              fontSize: '13px',
+              fontSize: '12px',
               cursor: 'pointer',
-              backgroundColor: userReaction === r.type ? '#6c63ff22' : 'transparent',
-              borderColor: userReaction === r.type ? '#6c63ff' : '#2d3a5e',
-              color: userReaction === r.type ? '#a78bfa' : '#94a3b8',
+              fontFamily: "'DM Sans', sans-serif",
+              backgroundColor: userReaction === r.type ? '#F9731615' : 'transparent',
+              borderColor: userReaction === r.type ? '#F97316' : '#2A2A2A',
+              color: userReaction === r.type ? '#F97316' : '#6A6A5A',
               transition: 'all 0.15s',
             }}
           >
-            {r.emoji}
-            <span>{post.reactions?.[r.type] || 0}</span>
+            {r.emoji} <span>{post.reactions?.[r.type] || 0}</span>
           </button>
         ))}
-
-        {/* Comment count — click to expand */}
         <button
           onClick={onExpand}
           style={{
             marginLeft: 'auto',
             display: 'flex', alignItems: 'center', gap: '5px',
             padding: '5px 10px',
-            borderRadius: '8px',
-            border: '1px solid #2d3a5e',
-            fontSize: '13px',
+            borderRadius: '6px',
+            border: '1px solid #2A2A2A',
+            fontSize: '12px',
             cursor: 'pointer',
             backgroundColor: 'transparent',
-            color: '#94a3b8',
+            color: '#6A6A5A',
+            fontFamily: "'DM Sans', sans-serif",
           }}
         >
           💬 {post.comment_count || 0}
@@ -573,32 +520,29 @@ function PostCard({ post, currentUserId, onReact, onExpand }) {
   )
 }
 
-// ══════════════════════════════════════════════════════════════════════════
-// MODAL WRAPPER COMPONENT
-// ══════════════════════════════════════════════════════════════════════════
+// ── Modal ──
 function Modal({ children, onClose }) {
   return (
     <div
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0,
-        backgroundColor: '#00000088',
+        backgroundColor: '#00000090',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 200,
-        padding: '16px',
+        zIndex: 200, padding: '16px',
       }}
     >
       <div
-        onClick={e => e.stopPropagation()}  // prevent closing when clicking inside
+        onClick={e => e.stopPropagation()}
         style={{
-          backgroundColor: '#16213e',
-          borderRadius: '16px',
+          backgroundColor: '#161616',
+          borderRadius: '14px',
           padding: '28px',
           width: '100%',
           maxWidth: '520px',
           maxHeight: '90vh',
           overflowY: 'auto',
-          border: '1px solid #1e2a4a',
+          border: '1px solid #2A2A2A',
         }}
       >
         {children}
@@ -607,45 +551,43 @@ function Modal({ children, onClose }) {
   )
 }
 
-// ══════════════════════════════════════════════════════════════════════════
-// SHARED STYLES
-// ══════════════════════════════════════════════════════════════════════════
+// ── Shared styles ──
 const labelStyle = {
   display: 'block',
-  fontSize: '13px',
-  color: '#94a3b8',
-  marginBottom: '6px',
-  letterSpacing: '0.08em',
+  fontSize: '11px',
+  color: '#6A6A5A',
+  marginBottom: '8px',
+  letterSpacing: '0.1em',
+  fontWeight: 600,
+  textTransform: 'uppercase',
 }
 
 const inputStyle = {
   width: '100%',
-  backgroundColor: '#0f0f1a',
-  border: '1px solid #2d3a5e',
+  backgroundColor: '#111111',
+  border: '1px solid #2A2A2A',
   borderRadius: '8px',
-  padding: '10px 12px',
-  color: '#f8fafc',
+  padding: '10px 14px',
+  color: '#F5F0E8',
   fontSize: '14px',
-  marginBottom: '16px',
+  marginBottom: '20px',
   outline: 'none',
   boxSizing: 'border-box',
-  fontFamily: 'inherit',
+  fontFamily: "'DM Sans', sans-serif",
+  lineHeight: '1.5',
 }
 
-// ══════════════════════════════════════════════════════════════════════════
-// EXPANDED POST COMPONENT — full post with comments
-// ══════════════════════════════════════════════════════════════════════════
+// ── Expanded Post ──
 function ExpandedPost({ post, currentUser, onClose, onReact, onCommentAdded }) {
-  const [fullPost, setFullPost]         = useState(null)   // post with comments
-  const [loading, setLoading]           = useState(true)
-  const [error, setError]               = useState(null)
-  const [comment, setComment]           = useState('')
+  const [fullPost, setFullPost] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [comment, setComment] = useState('')
   const [commentLoading, setCommentLoading] = useState(false)
   const [commentError, setCommentError] = useState(null)
 
   const userReaction = (fullPost || post).reactions_by_user?.[currentUser?.id]
 
-  // Fetch full post with comments when this opens
   useEffect(() => {
     async function load() {
       try {
@@ -663,7 +605,6 @@ function ExpandedPost({ post, currentUser, onClose, onReact, onCommentAdded }) {
     load()
   }, [post.id])
 
-  // Submit a comment
   async function handleComment() {
     if (!comment.trim()) return
     try {
@@ -672,22 +613,13 @@ function ExpandedPost({ post, currentUser, onClose, onReact, onCommentAdded }) {
       const res = await fetch('/api/posts/comment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: currentUser.id,
-          postId: post.id,
-          content: comment.trim(),
-        }),
+        body: JSON.stringify({ userId: currentUser.id, postId: post.id, content: comment.trim() }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Failed to post comment')
-
-      // Append new comment to local state immediately
-      setFullPost(prev => ({
-        ...prev,
-        comments: [...(prev.comments || []), json.data],
-      }))
+      setFullPost(prev => ({ ...prev, comments: [...(prev.comments || []), json.data] }))
       setComment('')
-      onCommentAdded(post.id)  // update count in feed
+      onCommentAdded(post.id)
       toast.success('Comment posted!')
     } catch (err) {
       setCommentError(err.message)
@@ -698,54 +630,49 @@ function ExpandedPost({ post, currentUser, onClose, onReact, onCommentAdded }) {
   }
 
   const displayPost = fullPost || post
+  const stage = STAGE_STYLES[displayPost.stage] || STAGE_STYLES.idea
 
   return (
     <Modal onClose={onClose}>
-      {/* Stage badge + title */}
-      <div style={{ marginBottom: '16px' }}>
+      <div style={{ marginBottom: '20px' }}>
         <span style={{
-          fontSize: '11px', fontWeight: 500, color: '#a78bfa',
-          textTransform: 'uppercase', letterSpacing: '0.08em',
+          padding: '3px 10px', borderRadius: '4px', fontSize: '11px',
+          fontWeight: 500, backgroundColor: stage.bg,
+          color: stage.color, border: `1px solid ${stage.border}`,
+          letterSpacing: '0.06em', textTransform: 'uppercase',
         }}>
           {displayPost.stage}
         </span>
-        <h2 style={{ fontSize: '20px', fontWeight: 500, marginTop: '6px', lineHeight: 1.4 }}>
+        <h2 style={{ fontSize: '20px', fontWeight: 600, marginTop: '12px', color: '#F5F0E8', lineHeight: 1.3 }}>
           {displayPost.title}
         </h2>
       </div>
 
-      {/* Author */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
         <div style={{
           width: '32px', height: '32px', borderRadius: '50%',
-          backgroundColor: '#6c63ff33',
+          backgroundColor: '#F9731620', border: '1px solid #F9731640',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '13px', fontWeight: 600, color: '#a78bfa',
+          fontSize: '13px', fontWeight: 600, color: '#F97316',
         }}>
           {displayPost.users?.name?.charAt(0).toUpperCase() || '?'}
         </div>
         <div>
-          <p style={{ fontSize: '13px', fontWeight: 500, color: '#f8fafc', margin: 0 }}>
-            {displayPost.users?.name}
-          </p>
-          <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0 }}>
-            {displayPost.users?.college} · {timeAgo(displayPost.created_at)}
-          </p>
+          <p style={{ fontSize: '13px', fontWeight: 500, color: '#F5F0E8', margin: 0 }}>{displayPost.users?.name}</p>
+          <p style={{ fontSize: '12px', color: '#6A6A5A', margin: 0 }}>{displayPost.users?.college} · {timeAgo(displayPost.created_at)}</p>
         </div>
       </div>
 
-      {/* Description */}
-      <p style={{ fontSize: '15px', color: '#cbd5e1', lineHeight: 1.7, marginBottom: '16px' }}>
+      <p style={{ fontSize: '15px', color: '#9A9A8A', lineHeight: 1.8, marginBottom: '16px' }}>
         {displayPost.description}
       </p>
 
-      {/* Looking for */}
       {displayPost.looking_for?.length > 0 && (
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '20px' }}>
           {displayPost.looking_for.map(item => (
             <span key={item} style={{
-              padding: '4px 12px', borderRadius: '20px', fontSize: '12px',
-              backgroundColor: '#22d3ee11', color: '#22d3ee', border: '1px solid #22d3ee33',
+              padding: '4px 12px', borderRadius: '4px', fontSize: '12px',
+              backgroundColor: '#F9731610', color: '#F97316', border: '1px solid #F9731630',
             }}>
               {item}
             </span>
@@ -753,7 +680,6 @@ function ExpandedPost({ post, currentUser, onClose, onReact, onCommentAdded }) {
         </div>
       )}
 
-      {/* Reactions */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
         {REACTIONS.map(r => (
           <button
@@ -761,11 +687,12 @@ function ExpandedPost({ post, currentUser, onClose, onReact, onCommentAdded }) {
             onClick={() => onReact(displayPost.id, r.type)}
             style={{
               display: 'flex', alignItems: 'center', gap: '5px',
-              padding: '7px 14px', borderRadius: '8px', border: '1px solid',
-              fontSize: '14px', cursor: 'pointer',
-              backgroundColor: userReaction === r.type ? '#6c63ff22' : 'transparent',
-              borderColor: userReaction === r.type ? '#6c63ff' : '#2d3a5e',
-              color: userReaction === r.type ? '#a78bfa' : '#94a3b8',
+              padding: '7px 14px', borderRadius: '6px', border: '1px solid',
+              fontSize: '13px', cursor: 'pointer',
+              fontFamily: "'DM Sans', sans-serif",
+              backgroundColor: userReaction === r.type ? '#F9731615' : 'transparent',
+              borderColor: userReaction === r.type ? '#F97316' : '#2A2A2A',
+              color: userReaction === r.type ? '#F97316' : '#6A6A5A',
               transition: 'all 0.15s',
             }}
           >
@@ -774,66 +701,41 @@ function ExpandedPost({ post, currentUser, onClose, onReact, onCommentAdded }) {
         ))}
       </div>
 
-      {/* Divider */}
-      <div style={{ borderTop: '1px solid #1e2a4a', marginBottom: '20px' }} />
+      <div style={{ borderTop: '1px solid #1E1E1E', marginBottom: '20px' }} />
 
-      {/* Comments heading */}
-      <p style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '16px', letterSpacing: '0.08em' }}>
+      <p style={{ fontSize: '11px', color: '#6A6A5A', marginBottom: '16px', letterSpacing: '0.1em', fontWeight: 600 }}>
         COMMENTS {loading ? '' : `· ${fullPost?.comments?.length || 0}`}
       </p>
 
-      {/* Loading comments */}
-      {loading && (
-        <p style={{ color: '#94a3b8', fontSize: '14px', textAlign: 'center', padding: '20px 0' }}>
-          Loading...
-        </p>
-      )}
+      {loading && <p style={{ color: '#6A6A5A', fontSize: '14px', textAlign: 'center', padding: '20px 0' }}>Loading...</p>}
+      {error && <p style={{ color: '#FCA5A5', fontSize: '14px' }}>{error}</p>}
 
-      {/* Error */}
-      {error && (
-        <p style={{ color: '#fca5a5', fontSize: '14px' }}>{error}</p>
-      )}
-
-      {/* Comments list */}
       {!loading && fullPost?.comments?.map(c => (
-        <div key={c.id} style={{
-          display: 'flex', gap: '10px', marginBottom: '16px',
-        }}>
+        <div key={c.id} style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
           <div style={{
             width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
-            backgroundColor: '#6c63ff22',
+            backgroundColor: '#F9731615', border: '1px solid #F9731630',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '12px', fontWeight: 600, color: '#a78bfa',
+            fontSize: '12px', fontWeight: 600, color: '#F97316',
           }}>
             {c.users?.name?.charAt(0).toUpperCase() || '?'}
           </div>
-          <div style={{
-            backgroundColor: '#0f0f1a', borderRadius: '8px',
-            padding: '10px 14px', flex: 1,
-          }}>
+          <div style={{ backgroundColor: '#111111', borderRadius: '8px', padding: '10px 14px', flex: 1, border: '1px solid #1E1E1E' }}>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'baseline', marginBottom: '4px' }}>
-              <span style={{ fontSize: '13px', fontWeight: 500, color: '#f8fafc' }}>
-                {c.users?.name || 'Unknown'}
-              </span>
-              <span style={{ fontSize: '11px', color: '#94a3b8' }}>
-                {timeAgo(c.created_at)}
-              </span>
+              <span style={{ fontSize: '13px', fontWeight: 500, color: '#F5F0E8' }}>{c.users?.name || 'Unknown'}</span>
+              <span style={{ fontSize: '11px', color: '#6A6A5A' }}>{timeAgo(c.created_at)}</span>
             </div>
-            <p style={{ fontSize: '14px', color: '#cbd5e1', margin: 0, lineHeight: 1.5 }}>
-              {c.content}
-            </p>
+            <p style={{ fontSize: '14px', color: '#9A9A8A', margin: 0, lineHeight: 1.6 }}>{c.content}</p>
           </div>
         </div>
       ))}
 
-      {/* Empty comments */}
       {!loading && fullPost?.comments?.length === 0 && (
-        <p style={{ color: '#94a3b8', fontSize: '14px', textAlign: 'center', padding: '12px 0' }}>
+        <p style={{ color: '#6A6A5A', fontSize: '14px', textAlign: 'center', padding: '12px 0' }}>
           No comments yet. Start the conversation.
         </p>
       )}
 
-      {/* Add comment input */}
       <div style={{ marginTop: '20px' }}>
         <textarea
           placeholder="Add a comment..."
@@ -842,22 +744,20 @@ function ExpandedPost({ post, currentUser, onClose, onReact, onCommentAdded }) {
           style={{ ...inputStyle, height: '80px', resize: 'none', marginBottom: '8px' }}
           maxLength={500}
         />
-        {commentError && (
-          <p style={{ color: '#fca5a5', fontSize: '13px', marginBottom: '8px' }}>
-            {commentError}
-          </p>
-        )}
+        {commentError && <p style={{ color: '#FCA5A5', fontSize: '13px', marginBottom: '8px' }}>{commentError}</p>}
         <button
           onClick={handleComment}
           disabled={commentLoading || !comment.trim()}
           style={{
-            backgroundColor: commentLoading || !comment.trim() ? '#4a4580' : '#6c63ff',
-            color: '#fff', border: 'none', borderRadius: '8px',
-            padding: '10px 20px', fontSize: '14px', fontWeight: 500,
+            backgroundColor: commentLoading || !comment.trim() ? '#2A2A2A' : '#F97316',
+            color: commentLoading || !comment.trim() ? '#6A6A5A' : '#111',
+            border: 'none', borderRadius: '6px',
+            padding: '10px 20px', fontSize: '14px', fontWeight: 600,
             cursor: commentLoading || !comment.trim() ? 'not-allowed' : 'pointer',
+            fontFamily: "'DM Sans', sans-serif",
           }}
         >
-          {commentLoading ? 'Posting...' : 'Comment'}
+          {commentLoading ? 'Posting...' : 'Comment →'}
         </button>
       </div>
     </Modal>

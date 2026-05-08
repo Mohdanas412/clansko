@@ -108,7 +108,7 @@ export default function LandingPage() {
         {/* CTAs */}
         <div style={{ display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
           <Link href="/signup" className="btn-primary">
-            Join the community — it's free
+            Join the community — it&apos;s free
           </Link>
           <Link href="/login" className="btn-ghost">
             Already a member? Log in
@@ -334,15 +334,15 @@ export default function LandingPage() {
       }}>
         <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
           <h2 style={{
-            fontFamily: "'DM Serif Display', serif",
+            fontFamily: '"DM Serif Display", serif',
             fontSize: '48px',
             fontWeight: 400,
             color: '#111111',
             lineHeight: 1.2,
             maxWidth: '700px',
           }}>
-            "Proof over intention.<br />
-            <span style={{ fontStyle: 'italic' }}>Action over consumption."</span>
+            &ldquo;Proof over intention.<br />
+            <span style={{ fontStyle: 'italic' }}>Action over consumption.&rdquo;</span>
           </h2>
           <p style={{
             fontSize: '15px',
@@ -384,7 +384,7 @@ export default function LandingPage() {
             The right time is now. The right people are on ClanSko.
           </p>
           <Link href="/signup" className="btn-primary" style={{ fontSize: '16px', padding: '14px 36px' }}>
-            Join ClanSko — it's free →
+            Join ClanSko — it&apos;s free →
           </Link>
           <p style={{ fontSize: '13px', color: '#444', marginTop: '20px' }}>
             No credit card. No approval needed. Just show up.

@@ -285,7 +285,7 @@ export default function FeedPage() {
 
           <label style={labelStyle}>DESCRIPTION *</label>
           <textarea
-            placeholder="Describe the problem, your solution, and where you're at..."
+            placeholder="Describe the problem, your solution, and where You&apos;re at..."
             value={form.description}
             onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
             style={{ ...inputStyle, height: '110px', resize: 'vertical' }}

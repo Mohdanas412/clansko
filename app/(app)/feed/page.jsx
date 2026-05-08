@@ -270,7 +270,7 @@ export default function FeedPage() {
               Share your idea
             </h2>
             <p style={{ fontSize: '13px', color: '#6A6A5A' }}>
-              Tell the community what you're building.
+              Tell the community what you&apos;re building.
             </p>
           </div>
 

@@ -1,255 +1,891 @@
-// app/(app)/profile/[id]/page.jsx
-// Public profile page — shows any user's profile by their ID
-// If viewing your own profile — shows an Edit button
-// Route: /profile/[id]
+'use client';
 
-'use client'
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { createBrowserClient } from '@supabase/ssr'
-import { UserCardSkeleton } from '@/components/Skeleton'
+import { useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { createBrowserClient } from '@supabase/ssr';
+import toast from 'react-hot-toast';
 
-export default function ProfilePage({ params }) {
-  const router = useRouter()
-  const { id } = params
+export default function ProfilePage() {
+  const params = useParams();
+  const router = useRouter();
+  const profileId = params.id;
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  )
+  const [supabase] = useState(() =>
+    createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    )
+  );
 
-  const [profile, setProfile]     = useState(null)
-  const [currentUser, setCurrentUser] = useState(null)
-  const [loading, setLoading]     = useState(true)
-  const [error, setError]         = useState('')
+  const [currentUser, setCurrentUser] = useState(null);
+  const [profileUser, setProfileUser] = useState(null);
+  const [userPosts, setUserPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [connectionStatus, setConnectionStatus] = useState(null);
+  const [pendingConnectionId, setPendingConnectionId] = useState(null);
+  const [activeTab, setActiveTab] = useState('posts');
+  const [connectLoading, setConnectLoading] = useState(false);
 
   useEffect(() => {
-    async function loadProfile() {
-      try {
-        // Get logged in user
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) setCurrentUser(user)
-
-        // Fetch the profile for the ID in the URL
-        const res = await fetch(`/api/users/${id}`)
-        const data = await res.json()
-
-        if (!res.ok) {
-          setError(data.error || 'User not found.')
-          setLoading(false)
-          return
-        }
-
-        setProfile(data.data)
-        setLoading(false)
-
-      } catch (err) {
-        console.error('Profile load error:', err)
-        setError('Failed to load profile.')
-        setLoading(false)
+    async function init() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push('/login');
+        return;
       }
-    }
-    loadProfile()
-  }, [id])
 
-  // ── Loading state ──
+      const { data: currentUserData } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      setCurrentUser(currentUserData);
+
+      const { data: profileData } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', profileId)
+        .single();
+
+      if (!profileData) {
+        toast.error('User not found');
+        router.push('/explore');
+        return;
+      }
+
+      setProfileUser(profileData);
+
+      const { data: postsData } = await supabase
+        .from('posts')
+        .select(`
+          *,
+          users (name, profile_photo),
+          reactions (id, type),
+          comments (id)
+        `)
+        .eq('user_id', profileId)
+        .order('created_at', { ascending: false });
+
+      setUserPosts(postsData || []);
+
+      if (user.id !== profileId) {
+        const { data: connection } = await supabase
+          .from('connections')
+          .select('*')
+          .or(`and(sender_id.eq.${user.id},receiver_id.eq.${profileId}),and(sender_id.eq.${profileId},receiver_id.eq.${user.id})`)
+          .maybeSingle();
+
+        if (connection) {
+          setConnectionStatus(connection.status);
+          setPendingConnectionId(connection.id);
+        }
+      }
+
+      setLoading(false);
+    }
+
+    init();
+  }, [profileId, supabase, router]);
+
+  const handleConnect = async () => {
+    setConnectLoading(true);
+    try {
+      const response = await fetch('/api/connections/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          receiver_id: profileId,
+          message: `Hi ${profileUser.name}, I&apos;d like to connect!`
+        })
+      });
+
+      if (response.ok) {
+        setConnectionStatus('pending');
+        toast.success('Connection request sent!');
+      } else {
+        toast.error('Failed to send request');
+      }
+    } catch (error) {
+      toast.error('Something went wrong');
+    }
+    setConnectLoading(false);
+  };
+
+  const handleAccept = async () => {
+    setConnectLoading(true);
+    try {
+      const response = await fetch('/api/connections/respond', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          connection_id: pendingConnectionId,
+          action: 'accept'
+        })
+      });
+
+      if (response.ok) {
+        setConnectionStatus('accepted');
+        toast.success('Connection accepted!');
+      } else {
+        toast.error('Failed to accept');
+      }
+    } catch (error) {
+      toast.error('Something went wrong');
+    }
+    setConnectLoading(false);
+  };
+
+  const handleMessage = () => {
+    router.push(`/messages/${pendingConnectionId}`);
+  };
+
   if (loading) {
     return (
-      <main style={{ backgroundColor: '#0f0f1a', minHeight: '100vh', padding: '48px 16px' }}>
-        <div style={{ maxWidth: '560px', margin: '0 auto' }}>
-          {/* Back button skeleton */}
-          <div style={{ width: '60px', height: '14px', backgroundColor: '#1e2a4a', borderRadius: '6px', marginBottom: '32px' }} />
-          {/* Profile card skeleton — reuse UserCardSkeleton shape */}
+      <div style={{ 
+        minHeight: '100vh', 
+        background: '#111111',
+        padding: '24px'
+      }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+          {/* Header skeleton */}
           <div style={{
-            backgroundColor: '#16213e',
-            borderRadius: '16px',
-            padding: '24px',
-            border: '1px solid #2a2a4a',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '20px',
+            background: '#161616',
+            border: '1px solid #1E1E1E',
+            borderRadius: '12px',
+            padding: '40px',
+            marginBottom: '24px'
           }}>
-            {/* Avatar + name */}
-            <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-              <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: '#1e2a4a', flexShrink: 0 }} />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
-                <div style={{ width: '160px', height: '20px', backgroundColor: '#1e2a4a', borderRadius: '6px' }} />
-                <div style={{ width: '120px', height: '14px', backgroundColor: '#1e2a4a', borderRadius: '6px' }} />
+            <div style={{ display: 'flex', gap: '32px', alignItems: 'flex-start' }}>
+              <div style={{
+                width: '120px',
+                height: '120px',
+                borderRadius: '12px',
+                background: '#1E1E1E'
+              }}></div>
+              <div style={{ flex: 1 }}>
+                <div style={{ width: '200px', height: '28px', background: '#1E1E1E', borderRadius: '4px', marginBottom: '12px' }}></div>
+                <div style={{ width: '300px', height: '20px', background: '#1E1E1E', borderRadius: '4px', marginBottom: '8px' }}></div>
+                <div style={{ width: '150px', height: '20px', background: '#1E1E1E', borderRadius: '4px' }}></div>
               </div>
-            </div>
-            {/* Divider */}
-            <div style={{ height: '1px', backgroundColor: '#2a2a4a' }} />
-            {/* Branch + year */}
-            <div style={{ display: 'flex', gap: '24px' }}>
-              <div style={{ width: '80px', height: '14px', backgroundColor: '#1e2a4a', borderRadius: '6px' }} />
-              <div style={{ width: '60px', height: '14px', backgroundColor: '#1e2a4a', borderRadius: '6px' }} />
-            </div>
-            {/* Bio lines */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <div style={{ width: '100%', height: '14px', backgroundColor: '#1e2a4a', borderRadius: '6px' }} />
-              <div style={{ width: '85%', height: '14px', backgroundColor: '#1e2a4a', borderRadius: '6px' }} />
-            </div>
-            {/* Skills */}
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <div style={{ width: '70px', height: '26px', backgroundColor: '#1e2a4a', borderRadius: '999px' }} />
-              <div style={{ width: '90px', height: '26px', backgroundColor: '#1e2a4a', borderRadius: '999px' }} />
-              <div style={{ width: '60px', height: '26px', backgroundColor: '#1e2a4a', borderRadius: '999px' }} />
             </div>
           </div>
         </div>
-      </main>
-    )
+      </div>
+    );
   }
 
-  // ── Error state ──
-  if (error) {
-    return (
-      <main style={{ backgroundColor: '#0f0f1a', minHeight: '100vh' }}
-        className="flex items-center justify-center">
-        <div className="text-center">
-          <p style={{ color: '#ff4d4d' }} className="text-sm mb-4">{error}</p>
-          <button
-            onClick={() => router.push('/feed')}
-            style={{ color: '#a78bfa' }}
-            className="text-sm hover:underline"
-          >
-            ← Back to feed
-          </button>
-        </div>
-      </main>
-    )
-  }
-
-  const isOwnProfile = currentUser?.id === profile?.id
+  const isOwnProfile = currentUser?.id === profileId;
+  const reactionCount = userPosts.reduce((sum, post) => sum + (post.reactions?.length || 0), 0);
+  const commentCount = userPosts.reduce((sum, post) => sum + (post.comments?.length || 0), 0);
 
   return (
-    <main style={{ backgroundColor: '#0f0f1a', minHeight: '100vh', padding: '24px 16px' }}>
-      <div className="max-w-xl mx-auto">
+    <div style={{ 
+      minHeight: '100vh', 
+      background: '#111111',
+      paddingBottom: '80px'
+    }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px' }}>
+        
+        {/* Profile Header Card */}
+        <div style={{
+          background: '#161616',
+          border: '1px solid #1E1E1E',
+          borderRadius: '12px',
+          padding: '40px',
+          marginBottom: '24px'
+        }}>
+          <div style={{ display: 'flex', gap: '32px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            
+            {/* Avatar */}
+            <div style={{
+              width: '120px',
+              height: '120px',
+              borderRadius: '12px',
+              background: profileUser.profile_photo ? 'transparent' : '#F9731620',
+              border: `2px solid ${profileUser.profile_photo ? '#2A2A2A' : '#F9731640'}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '48px',
+              fontWeight: '600',
+              color: '#F97316',
+              flexShrink: 0,
+              overflow: 'hidden'
+            }}>
+              {profileUser.profile_photo ? (
+                <img 
+                  src={profileUser.profile_photo} 
+                  alt={profileUser.name}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              ) : (
+                profileUser.name?.charAt(0).toUpperCase()
+              )}
+            </div>
 
-        {/* Back button */}
-        <button
-          onClick={() => router.back()}
-          className="text-sm mb-8 hover:underline"
-          style={{ color: '#94a3b8' }}
-        >
-          ← Back
-        </button>
-
-        {/* Profile card */}
-        <div className="p-6 rounded-2xl border border-white/10" style={{ backgroundColor: '#16213e' }}>
-
-          {/* Top row — avatar + name + edit button */}
-          <div className="flex items-start justify-between mb-6">
-            <div className="flex items-center gap-4">
-
-              {/* Avatar — initials based */}
-              <div
-                className="w-16 h-16 rounded-full flex items-center justify-center text-xl font-medium"
-                style={{ backgroundColor: '#6c63ff22', border: '2px solid #6c63ff', color: '#a78bfa' }}
-              >
-                {profile.name?.charAt(0).toUpperCase()}
+            {/* Info */}
+            <div style={{ flex: 1, minWidth: '300px' }}>
+              <h1 style={{
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: '28px',
+                fontWeight: '600',
+                color: '#F5F0E8',
+                marginBottom: '8px'
+              }}>
+                {profileUser.name}
+              </h1>
+              
+              <div style={{ 
+                display: 'flex', 
+                gap: '16px', 
+                flexWrap: 'wrap',
+                marginBottom: '16px',
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: '14px',
+                color: '#9A9A8A'
+              }}>
+                <span>{profileUser.college}</span>
+                <span>•</span>
+                <span>{profileUser.branch}</span>
+                <span>•</span>
+                <span>{profileUser.year} Year</span>
               </div>
 
-              <div>
-                <h1 className="text-xl font-medium" style={{ color: '#f8fafc' }}>
-                  {profile.name}
-                </h1>
-                <p className="text-sm mt-1" style={{ color: '#94a3b8' }}>
-                  {profile.college || 'College not set'}
+              {profileUser.bio && (
+                <p style={{
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: '15px',
+                  lineHeight: '1.6',
+                  color: '#F5F0E8',
+                  marginBottom: '20px',
+                  maxWidth: '600px'
+                }}>
+                  {profileUser.bio}
                 </p>
+              )}
+
+              {/* Stats */}
+              <div style={{ display: 'flex', gap: '32px', marginBottom: '24px' }}>
+                <div>
+                  <div style={{
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '24px',
+                    fontWeight: '600',
+                    color: '#F97316'
+                  }}>
+                    {userPosts.length}
+                  </div>
+                  <div style={{
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '12px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    color: '#6A6A5A',
+                    fontWeight: '500'
+                  }}>
+                    Posts
+                  </div>
+                </div>
+                <div>
+                  <div style={{
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '24px',
+                    fontWeight: '600',
+                    color: '#F97316'
+                  }}>
+                    {reactionCount}
+                  </div>
+                  <div style={{
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '12px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    color: '#6A6A5A',
+                    fontWeight: '500'
+                  }}>
+                    Reactions
+                  </div>
+                </div>
+                <div>
+                  <div style={{
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '24px',
+                    fontWeight: '600',
+                    color: '#F97316'
+                  }}>
+                    {commentCount}
+                  </div>
+                  <div style={{
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '12px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    color: '#6A6A5A',
+                    fontWeight: '500'
+                  }}>
+                    Comments
+                  </div>
+                </div>
               </div>
-            </div>
 
-            {/* Edit button — only on own profile */}
-            {isOwnProfile && (
-              <button
-                onClick={() => router.push('/profile/edit')}
-                className="px-4 py-2 rounded-lg text-xs font-medium"
-                style={{ backgroundColor: 'transparent', border: '1px solid #6c63ff', color: '#a78bfa', cursor: 'pointer' }}
-              >
-                Edit profile
-              </button>
-            )}
-          </div>
-
-          {/* Divider */}
-          <div className="w-full h-px mb-6" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }} />
-
-          {/* College info row */}
-          <div className="flex gap-6 mb-6 flex-wrap">
-            {profile.branch && (
-              <div>
-                <p className="text-xs mb-1" style={{ color: '#94a3b8', letterSpacing: '0.08em' }}>BRANCH</p>
-                <p className="text-sm font-medium" style={{ color: '#f8fafc' }}>{profile.branch}</p>
-              </div>
-            )}
-            {profile.year && (
-              <div>
-                <p className="text-xs mb-1" style={{ color: '#94a3b8', letterSpacing: '0.08em' }}>YEAR</p>
-                <p className="text-sm font-medium" style={{ color: '#f8fafc' }}>Year {profile.year}</p>
-              </div>
-            )}
-          </div>
-
-          {/* Bio */}
-          {profile.bio && (
-            <div className="mb-6">
-              <p className="text-xs mb-2" style={{ color: '#94a3b8', letterSpacing: '0.08em' }}>BIO</p>
-              <p className="text-sm leading-relaxed" style={{ color: '#f8fafc' }}>{profile.bio}</p>
-            </div>
-          )}
-
-          {/* Skills */}
-          {profile.skills && profile.skills.length > 0 && (
-            <div className="mb-6">
-              <p className="text-xs mb-3" style={{ color: '#94a3b8', letterSpacing: '0.08em' }}>SKILLS</p>
-              <div className="flex flex-wrap gap-2">
-                {profile.skills.map(skill => (
-                  <span
-                    key={skill}
-                    className="px-3 py-1 rounded-full text-xs font-medium"
-                    style={{ backgroundColor: '#6c63ff22', border: '1px solid #6c63ff44', color: '#a78bfa' }}
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                {isOwnProfile ? (
+                  <button
+                    onClick={() => router.push('/profile/edit')}
+                    style={{
+                      background: '#F97316',
+                      color: '#111111',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '10px 20px',
+                      fontFamily: "'DM Sans', sans-serif",
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
                   >
-                    {skill}
-                  </span>
-                ))}
+                    Edit Profile
+                  </button>
+                ) : (
+                  <>
+                    {connectionStatus === 'accepted' ? (
+                      <button
+                        onClick={handleMessage}
+                        style={{
+                          background: '#F97316',
+                          color: '#111111',
+                          border: 'none',
+                          borderRadius: '6px',
+                          padding: '10px 20px',
+                          fontFamily: "'DM Sans', sans-serif",
+                          fontSize: '14px',
+                          fontWeight: '600',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Message
+                      </button>
+                    ) : connectionStatus === 'pending' ? (
+                      <>
+                        {pendingConnectionId && (
+                          <>
+                            <button
+                              onClick={handleAccept}
+                              disabled={connectLoading}
+                              style={{
+                                background: '#F97316',
+                                color: '#111111',
+                                border: 'none',
+                                borderRadius: '6px',
+                                padding: '10px 20px',
+                                fontFamily: "'DM Sans', sans-serif",
+                                fontSize: '14px',
+                                fontWeight: '600',
+                                cursor: connectLoading ? 'not-allowed' : 'pointer',
+                                opacity: connectLoading ? 0.6 : 1
+                              }}
+                            >
+                              {connectLoading ? 'Accepting...' : 'Accept Request'}
+                            </button>
+                            <button
+                              disabled
+                              style={{
+                                background: 'transparent',
+                                color: '#9A9A8A',
+                                border: '1px solid #2A2A2A',
+                                borderRadius: '6px',
+                                padding: '10px 20px',
+                                fontFamily: "'DM Sans', sans-serif",
+                                fontSize: '14px',
+                                fontWeight: '600',
+                                cursor: 'not-allowed'
+                              }}
+                            >
+                              Pending
+                            </button>
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      <button
+                        onClick={handleConnect}
+                        disabled={connectLoading}
+                        style={{
+                          background: '#F97316',
+                          color: '#111111',
+                          border: 'none',
+                          borderRadius: '6px',
+                          padding: '10px 20px',
+                          fontFamily: "'DM Sans', sans-serif",
+                          fontSize: '14px',
+                          fontWeight: '600',
+                          cursor: connectLoading ? 'not-allowed' : 'pointer',
+                          opacity: connectLoading ? 0.6 : 1
+                        }}
+                      >
+                        {connectLoading ? 'Connecting...' : 'Connect'}
+                      </button>
+                    )}
+                  </>
+                )}
               </div>
             </div>
-          )}
-
-          {/* Looking for */}
-          {profile.looking_for && profile.looking_for.length > 0 && (
-            <div>
-              <p className="text-xs mb-3" style={{ color: '#94a3b8', letterSpacing: '0.08em' }}>LOOKING FOR</p>
-              <div className="flex flex-wrap gap-2">
-                {(Array.isArray(profile.looking_for) ? profile.looking_for : [profile.looking_for]).map(item => (
-                  <span
-                    key={item}
-                    className="px-3 py-1 rounded-full text-xs font-medium"
-                    style={{ backgroundColor: '#22d3ee11', border: '1px solid #22d3ee44', color: '#22d3ee' }}
-                  >
-                    {item}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
+          </div>
         </div>
 
-        {/* Connect button — only show on other people's profiles */}
-        {!isOwnProfile && (
-          <div className="mt-4">
-            <button
-              className="w-full py-3 rounded-lg text-sm font-medium"
-              style={{ backgroundColor: '#6c63ff', color: '#fff', cursor: 'pointer' }}
-            >
-              Connect →
-            </button>
+        {/* Tabs */}
+        <div style={{
+          display: 'flex',
+          gap: '24px',
+          marginBottom: '24px',
+          borderBottom: '1px solid #1E1E1E'
+        }}>
+          <button
+            onClick={() => setActiveTab('posts')}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              padding: '12px 0',
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: '14px',
+              fontWeight: '600',
+              color: activeTab === 'posts' ? '#F97316' : '#9A9A8A',
+              borderBottom: activeTab === 'posts' ? '2px solid #F97316' : '2px solid transparent',
+              cursor: 'pointer',
+              marginBottom: '-1px'
+            }}
+          >
+            Posts ({userPosts.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('about')}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              padding: '12px 0',
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: '14px',
+              fontWeight: '600',
+              color: activeTab === 'about' ? '#F97316' : '#9A9A8A',
+              borderBottom: activeTab === 'about' ? '2px solid #F97316' : '2px solid transparent',
+              cursor: 'pointer',
+              marginBottom: '-1px'
+            }}
+          >
+            About
+          </button>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === 'posts' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {userPosts.length === 0 ? (
+              <div style={{
+                background: '#161616',
+                border: '1px solid #1E1E1E',
+                borderRadius: '12px',
+                padding: '60px 24px',
+                textAlign: 'center'
+              }}>
+                <div style={{
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: '15px',
+                  color: '#9A9A8A'
+                }}>
+                  No posts yet
+                </div>
+              </div>
+            ) : (
+              userPosts.map(post => (
+                <PostCard key={post.id} post={post} currentUser={currentUser} />
+              ))
+            )}
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
+            {/* Skills */}
+            {profileUser.skills && profileUser.skills.length > 0 && (
+              <div style={{
+                background: '#161616',
+                border: '1px solid #1E1E1E',
+                borderRadius: '12px',
+                padding: '24px'
+              }}>
+                <div style={{
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: '12px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  color: '#F97316',
+                  fontWeight: '500',
+                  marginBottom: '16px'
+                }}>
+                  Skills
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {profileUser.skills.map((skill, idx) => (
+                    <span key={idx} style={{
+                      background: '#F9731610',
+                      border: '1px solid #F9731640',
+                      color: '#F97316',
+                      padding: '6px 12px',
+                      borderRadius: '6px',
+                      fontSize: '13px',
+                      fontFamily: "'DM Sans', sans-serif",
+                      fontWeight: '500'
+                    }}>
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Looking For */}
+            {profileUser.looking_for && profileUser.looking_for.length > 0 && (
+              <div style={{
+                background: '#161616',
+                border: '1px solid #1E1E1E',
+                borderRadius: '12px',
+                padding: '24px'
+              }}>
+                <div style={{
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: '12px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  color: '#F97316',
+                  fontWeight: '500',
+                  marginBottom: '16px'
+                }}>
+                  Looking For
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {profileUser.looking_for.map((item, idx) => (
+                    <span key={idx} style={{
+                      background: '#F9731610',
+                      border: '1px solid #F9731640',
+                      color: '#F97316',
+                      padding: '6px 12px',
+                      borderRadius: '6px',
+                      fontSize: '13px',
+                      fontFamily: "'DM Sans', sans-serif",
+                      fontWeight: '500'
+                    }}>
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
-
       </div>
-    </main>
-  )
+    </div>
+  );
+}
+
+function PostCard({ post, currentUser }) {
+  const router = useRouter();
+  const [supabase] = useState(() =>
+    createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    )
+  );
+
+  const [reactions, setReactions] = useState(post.reactions || []);
+  const [comments, setComments] = useState(post.comments || []);
+  const [showComments, setShowComments] = useState(false);
+  const [commentText, setCommentText] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const userReaction = reactions.find(r => r.user_id === currentUser?.id);
+
+  const handleReact = async (type) => {
+    const response = await fetch('/api/posts/react', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        post_id: post.id,
+        type
+      })
+    });
+
+    if (response.ok) {
+      const { data } = await response.json();
+      if (data.action === 'added') {
+        setReactions([...reactions, { id: data.id, type, user_id: currentUser.id }]);
+      } else {
+        setReactions(reactions.filter(r => r.user_id !== currentUser.id));
+      }
+    }
+  };
+
+  const handleComment = async (e) => {
+    e.preventDefault();
+    if (!commentText.trim()) return;
+
+    setSubmitting(true);
+    const response = await fetch('/api/posts/comment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        post_id: post.id,
+        content: commentText
+      })
+    });
+
+    if (response.ok) {
+      const { data } = await response.json();
+      setComments([...comments, data]);
+      setCommentText('');
+      toast.success('Comment added');
+    }
+    setSubmitting(false);
+  };
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = now - date;
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const days = Math.floor(hours / 24);
+
+    if (days > 7) return date.toLocaleDateString();
+    if (days > 0) return `${days}d ago`;
+    if (hours > 0) return `${hours}h ago`;
+    return 'Just now';
+  };
+
+  return (
+    <div style={{
+      background: '#161616',
+      border: '1px solid #1E1E1E',
+      borderRadius: '12px',
+      padding: '24px',
+      transition: 'border-color 0.2s'
+    }}>
+      {/* Post Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+        <div style={{
+          width: '40px',
+          height: '40px',
+          borderRadius: '8px',
+          background: post.users?.profile_photo ? 'transparent' : '#F9731620',
+          border: `2px solid ${post.users?.profile_photo ? '#2A2A2A' : '#F9731640'}`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '16px',
+          fontWeight: '600',
+          color: '#F97316',
+          overflow: 'hidden',
+          flexShrink: 0
+        }}>
+          {post.users?.profile_photo ? (
+            <img src={post.users.profile_photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            post.users?.name?.charAt(0).toUpperCase()
+          )}
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: '14px',
+            fontWeight: '600',
+            color: '#F5F0E8'
+          }}>
+            {post.users?.name}
+          </div>
+          <div style={{
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: '12px',
+            color: '#6A6A5A'
+          }}>
+            {formatDate(post.created_at)}
+          </div>
+        </div>
+        {post.stage && (
+          <span style={{
+            background: '#F9731610',
+            border: '1px solid #F9731640',
+            color: '#F97316',
+            padding: '4px 10px',
+            borderRadius: '6px',
+            fontSize: '11px',
+            fontFamily: "'DM Sans', sans-serif",
+            fontWeight: '500',
+            textTransform: 'uppercase'
+          }}>
+            {post.stage}
+          </span>
+        )}
+      </div>
+
+      {/* Post Content */}
+      <h3 style={{
+        fontFamily: "'DM Sans', sans-serif",
+        fontSize: '18px',
+        fontWeight: '600',
+        color: '#F5F0E8',
+        marginBottom: '8px'
+      }}>
+        {post.title}
+      </h3>
+
+      <p style={{
+        fontFamily: "'DM Sans', sans-serif",
+        fontSize: '14px',
+        lineHeight: '1.6',
+        color: '#9A9A8A',
+        marginBottom: '16px'
+      }}>
+        {post.description}
+      </p>
+
+      {post.looking_for && post.looking_for.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
+          {post.looking_for.map((item, idx) => (
+            <span key={idx} style={{
+              background: '#F9731610',
+              border: '1px solid #F9731640',
+              color: '#F97316',
+              padding: '4px 10px',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontFamily: "'DM Sans', sans-serif",
+              fontWeight: '500'
+            }}>
+              {item}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Actions */}
+      <div style={{
+        display: 'flex',
+        gap: '16px',
+        paddingTop: '16px',
+        borderTop: '1px solid #1E1E1E'
+      }}>
+        <button
+          onClick={() => handleReact('fire')}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: '13px',
+            fontWeight: '500',
+            color: userReaction ? '#F97316' : '#9A9A8A',
+            cursor: 'pointer',
+            padding: '4px 8px',
+            borderRadius: '4px'
+          }}
+        >
+          <span style={{ fontSize: '16px' }}>🔥</span>
+          {reactions.length > 0 && reactions.length}
+        </button>
+        <button
+          onClick={() => setShowComments(!showComments)}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: '13px',
+            fontWeight: '500',
+            color: '#9A9A8A',
+            cursor: 'pointer',
+            padding: '4px 8px',
+            borderRadius: '4px'
+          }}
+        >
+          <span style={{ fontSize: '16px' }}>💬</span>
+          {comments.length > 0 && comments.length}
+        </button>
+      </div>
+
+      {/* Comments Section */}
+      {showComments && (
+        <div style={{
+          marginTop: '16px',
+          paddingTop: '16px',
+          borderTop: '1px solid #1E1E1E'
+        }}>
+          <form onSubmit={handleComment} style={{ marginBottom: '16px' }}>
+            <input
+              type="text"
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              placeholder="Add a comment..."
+              style={{
+                width: '100%',
+                background: '#111111',
+                border: '1px solid #2A2A2A',
+                borderRadius: '6px',
+                padding: '10px 12px',
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: '14px',
+                color: '#F5F0E8',
+                marginBottom: '8px'
+              }}
+            />
+            <button
+              type="submit"
+              disabled={submitting || !commentText.trim()}
+              style={{
+                background: '#F97316',
+                color: '#111111',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '8px 16px',
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: '13px',
+                fontWeight: '600',
+                cursor: submitting ? 'not-allowed' : 'pointer',
+                opacity: submitting || !commentText.trim() ? 0.5 : 1
+              }}
+            >
+              {submitting ? 'Posting...' : 'Post'}
+            </button>
+          </form>
+
+          {comments.map((comment) => (
+            <div key={comment.id} style={{
+              background: '#111111',
+              borderRadius: '8px',
+              padding: '12px',
+              marginBottom: '8px'
+            }}>
+              <div style={{
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: '13px',
+                fontWeight: '600',
+                color: '#F5F0E8',
+                marginBottom: '4px'
+              }}>
+                {comment.users?.name || 'User'}
+              </div>
+              <div style={{
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: '13px',
+                color: '#9A9A8A'
+              }}>
+                {comment.content}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }

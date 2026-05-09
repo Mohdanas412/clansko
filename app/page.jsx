@@ -3,6 +3,7 @@
 // Redesigned: editorial, bold, community-forward
 
 import Link from 'next/link'
+import Image from 'next/image'
 
 export default function LandingPage() {
   return (
@@ -26,26 +27,21 @@ export default function LandingPage() {
         backgroundColor: '#111111',
         zIndex: 100,
       }}>
-        {/* Logo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{
-            width: '28px', height: '28px',
-            background: '#F97316',
-            borderRadius: '6px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <span style={{ fontSize: '14px', fontWeight: 700, color: '#111', fontFamily: 'DM Sans' }}>C</span>
-          </div>
-          <span style={{
-            fontSize: '17px',
-            fontWeight: 600,
-            color: '#F5F0E8',
-            letterSpacing: '0.02em',
-            fontFamily: 'DM Sans',
-          }}>
-            ClanSko
-          </span>
-        </div>
+       {/* Logo */}
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <Image
+          src="/logo-new.png"
+         alt="ClanSko"
+         width={180}
+         height={50}
+         priority
+         style={{
+         height: '80px',
+         width: 'auto',
+        objectFit: 'contain',
+      }}
+  />
+</div>
 
         {/* Nav links — hidden on mobile */}
         <div style={{ display: 'flex', gap: '32px', alignItems: 'center' }}>

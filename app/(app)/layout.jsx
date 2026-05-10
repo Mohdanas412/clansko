@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
 import { useRouter } from 'next/navigation'
 import { Toaster } from 'react-hot-toast'
+import SkoButton from '@/components/SkoButton'
 
 export default function AppLayout({ children }) {
   const pathname = usePathname()
@@ -184,6 +185,10 @@ export default function AppLayout({ children }) {
           error: { iconTheme: { primary: '#ef4444', secondary: '#111' } },
         }}
       />
+
+      {/* ── SKO ── */}
+      <SkoButton />
+
     </div>
   )
 }

@@ -1,51 +1,47 @@
-// app/api/messages/read/route.js
-// Marks all unread messages in a conversation as is_read = true
-// Called when a user opens a chat — clears the unread badge
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
+import { NextResponse } from 'next/server';
 
-export const dynamic = 'force-dynamic'
-import { NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+export const dynamic = 'force-dynamic';
 
-function getSupabase() {
-  const cookieStore = cookies()
-  return createServerClient(
+export async function PATCH(request) {
+  const cookieStore = cookies();
+  const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
-        get(name) { return cookieStore.get(name)?.value },
-        set(name, value, options) { try { cookieStore.set({ name, value, ...options }) } catch {} },
-        remove(name, options) { try { cookieStore.set({ name, value: '', ...options }) } catch {} },
+        get(name) {
+          return cookieStore.get(name)?.value;
+        },
       },
     }
-  )
-}
+  );
 
-export async function PATCH(request) {
-  try {
-    const { connectionId, userId } = await request.json()
-
-    if (!connectionId || !userId)
-      return NextResponse.json({ error: 'connectionId and userId are required.' }, { status: 400 })
-
-    const supabase = getSupabase()
-
-    // Mark all messages in this conversation as read
-    // BUT only messages NOT sent by this user (you can't "read" your own messages)
-    const { error } = await supabase
-      .from('messages')
-      .update({ is_read: true })
-      .eq('connection_id', connectionId)
-      .neq('sender_id', userId)        // only mark OTHER person's messages as read
-      .eq('is_read', false)            // only update the ones not already read
-
-    if (error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
-
-    return NextResponse.json({ data: { success: true } }, { status: 200 })
-
-  } catch (err) {
-    return NextResponse.json({ error: 'Internal server error.' }, { status: 500 })
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  const body = await request.json();
+  const { connection_id } = body;
+
+  if (!connection_id) {
+    return NextResponse.json({ error: 'connection_id required' }, { status: 400 });
+  }
+
+  // Mark all unread messages in this connection as read (only those sent TO this user)
+  const { error } = await supabase
+    .from('messages')
+    .update({ is_read: true })
+    .eq('connection_id', connection_id)
+    .eq('is_read', false)
+    .neq('sender_id', user.id); // Don't mark own messages
+
+  if (error) {
+    console.error('Mark as read error:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true }, { status: 200 });
 }

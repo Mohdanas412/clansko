@@ -177,11 +177,13 @@ export default function GoalsPage() {
   if (loading) {
     return (
       <div style={{ 
-        minHeight: '100vh', 
-        background: '#111111',
-        padding: '24px',
-        paddingBottom: '80px'
-      }}>
+  minHeight: '100vh', 
+  background: '#111111',
+  paddingTop: '24px',
+  paddingLeft: '24px',
+  paddingRight: '24px',
+  paddingBottom: '80px'
+}}>
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
           <div style={{
             background: '#161616',

@@ -1,336 +1,350 @@
-// app/(app)/messages/page.jsx
-// Inbox page — shows all accepted connections as a list
-// Click any connection to open the full chat
+'use client';
 
-'use client'
-
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { createBrowserClient } from '@supabase/ssr'
-import { MessageItemSkeleton } from '@/components/Skeleton'
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createBrowserClient } from '@supabase/ssr';
 
 export default function MessagesPage() {
-  const router = useRouter()
+  const router = useRouter();
+  const [supabase] = useState(() =>
+    createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    )
+  );
 
-  // currentUser = the logged-in user's full profile from Supabase auth
-  const [currentUser, setCurrentUser] = useState(null)
+  const [currentUser, setCurrentUser] = useState(null);
+  const [conversations, setConversations] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // conversations = accepted connections with the other person's info
-  const [conversations, setConversations] = useState([])
-
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-
-  // Always use createBrowserClient in client components — never lib/supabase.js
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  )
-
-  // ─── Step 1: get the logged-in user ───────────────────────────────────────
   useEffect(() => {
-    async function getUser() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/login')
-        return
+    async function init() {
+      try {
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user) {
+          router.push('/login');
+          return;
+        }
+
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (userError) {
+          console.error('Error fetching user:', userError);
+          setLoading(false);
+          return;
+        }
+
+        setCurrentUser(userData);
+
+        // Get accepted connections
+        const { data: connections, error: connectionsError } = await supabase
+          .from('connections')
+          .select(`
+  *,
+  sender:sender_id(id, name, profile_photo),
+  receiver:receiver_id(id, name, profile_photo)
+`)
+          .eq('status', 'accepted')
+          .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+          .order('created_at', { ascending: false });
+
+        if (connectionsError) {
+          console.error('Error fetching connections:', connectionsError);
+          setLoading(false);
+          return;
+        }
+
+        if (connections && connections.length > 0) {
+          // Get last message for each connection
+          const conversationsWithMessages = await Promise.all(
+            connections.map(async (conn) => {
+              try {
+                const { data: lastMessage } = await supabase
+                  .from('messages')
+                  .select('*')
+                  .eq('connection_id', conn.id)
+                  .order('created_at', { ascending: false })
+                  .limit(1)
+                  .maybeSingle();
+
+                // Get unread count
+                const { data: unreadMessages } = await supabase
+                  .from('messages')
+                  .select('id')
+                  .eq('connection_id', conn.id)
+                  .eq('is_read', false)
+                  .neq('sender_id', user.id);
+
+                const otherUser = conn.sender_id === user.id ? conn.receiver : conn.sender;
+
+                return {
+                  connectionId: conn.id,
+                  otherUser,
+                  lastMessage,
+                  unreadCount: unreadMessages?.length || 0,
+                  timestamp: lastMessage?.created_at || conn.created_at
+                };
+              } catch (error) {
+                console.error('Error processing connection:', error);
+                return null;
+              }
+            })
+          );
+
+          // Filter out null results and sort by most recent message
+          const validConversations = conversationsWithMessages.filter(c => c !== null);
+          validConversations.sort((a, b) => 
+            new Date(b.timestamp) - new Date(a.timestamp)
+          );
+
+          setConversations(validConversations);
+        }
+
+        setLoading(false);
+      } catch (error) {
+        console.error('Error initializing messages page:', error);
+        setLoading(false);
       }
-      setCurrentUser(user)
     }
-    getUser()
-  }, [])
 
-  // ─── Step 2: once we have the user, load their connections ────────────────
-  useEffect(() => {
-    if (!currentUser) return
-    loadConversations()
-  }, [currentUser])
+    init();
+  }, [supabase, router]);
 
-  async function loadConversations() {
-    try {
-      setLoading(true)
-      setError('')
+  const formatTime = (timestamp) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diff = now - date;
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const days = Math.floor(hours / 24);
 
-      // Fetch all connections for this user (sent + received)
-      const res = await fetch(`/api/connections?userId=${currentUser.id}`)
-      const json = await res.json()
-
-      if (!res.ok) {
-        setError(json.error || 'Failed to load conversations.')
-        return
-      }
-
-      // Filter to only accepted connections — those are the ones we can chat in
-      const accepted = (json.data || []).filter(c => c.status === 'accepted')
-
-      // For each accepted connection, fetch the last message so we can show a preview
-      // We do this with Promise.all so all fetches happen in parallel, not one by one
-      const withPreviews = await Promise.all(
-        accepted.map(async (conn) => {
-          try {
-            const msgRes = await fetch(`/api/messages?connectionId=${conn.connectionId}`)
-            const msgJson = await msgRes.json()
-
-            if (!msgRes.ok) return { ...conn, lastMessage: null, unreadCount: 0 }
-
-            const messages = msgJson.data?.messages || []
-            const lastMessage = messages[messages.length - 1] || null
-
-            // Count unread messages — ones not sent by me and not yet read
-            const unreadCount = messages.filter(
-              m => m.sender_id !== currentUser.id && !m.is_read
-            ).length
-
-            return { ...conn, lastMessage, unreadCount }
-          } catch {
-            return { ...conn, lastMessage: null, unreadCount: 0 }
-          }
-        })
-      )
-
-      // Sort: conversations with most recent message first
-      withPreviews.sort((a, b) => {
-        const aTime = a.lastMessage?.created_at || a.createdAt
-        const bTime = b.lastMessage?.created_at || b.createdAt
-        return new Date(bTime) - new Date(aTime)
-      })
-
-      setConversations(withPreviews)
-    } catch (err) {
-      setError('Something went wrong. Please try again.')
-    } finally {
-      setLoading(false)
+    if (days > 7) {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     }
-  }
-
-  // ─── Helpers ──────────────────────────────────────────────────────────────
-
-  // Format timestamp to a readable short string
-  function formatTime(isoString) {
-    if (!isoString) return ''
-    const date = new Date(isoString)
-    const now = new Date()
-    const diffMs = now - date
-    const diffMins = Math.floor(diffMs / 60000)
-    const diffHours = Math.floor(diffMs / 3600000)
-    const diffDays = Math.floor(diffMs / 86400000)
-
-    if (diffMins < 1) return 'just now'
-    if (diffMins < 60) return `${diffMins}m ago`
-    if (diffHours < 24) return `${diffHours}h ago`
-    if (diffDays < 7) return `${diffDays}d ago`
-    return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
-  }
-
-  // Get initials for avatar placeholder when there's no profile photo
-  function getInitials(name) {
-    if (!name) return '?'
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-  }
-
-  // ─── Render ───────────────────────────────────────────────────────────────
+    if (days > 0) return `${days}d ago`;
+    if (hours > 0) return `${hours}h ago`;
+    return 'Just now';
+  };
 
   if (loading) {
     return (
-      <div style={{ maxWidth: '680px', margin: '0 auto', padding: '32px 16px' }}>
-        <div style={{ width: '160px', height: '22px', backgroundColor: '#1e2a4a', borderRadius: '6px', marginBottom: '8px' }} />
-        <div style={{ width: '200px', height: '14px', backgroundColor: '#1e2a4a', borderRadius: '6px', marginBottom: '32px' }} />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-          <MessageItemSkeleton />
-          <MessageItemSkeleton />
-          <MessageItemSkeleton />
+      <div style={{
+        minHeight: '100vh',
+        background: '#111111',
+        paddingTop: '24px',
+        paddingLeft: '24px',
+        paddingRight: '24px',
+        paddingBottom: '80px'
+      }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+          <div style={{
+            background: '#161616',
+            border: '1px solid #1E1E1E',
+            borderRadius: '12px',
+            padding: '20px'
+          }}>
+            <div style={{ width: '150px', height: '24px', background: '#1E1E1E', borderRadius: '4px' }}></div>
+          </div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
     <div style={{
-      maxWidth: '680px',
-      margin: '0 auto',
-      padding: '32px 16px',
+      minHeight: '100vh',
+      background: '#111111',
+      paddingTop: '0',
+      paddingLeft: '0',
+      paddingRight: '0',
+      paddingBottom: '80px'
     }}>
+      <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px' }}>
+        
+        {/* Header */}
+        <div style={{ marginBottom: '24px' }}>
+          <div style={{
+            width: '28px',
+            height: '3px',
+            background: '#F97316',
+            borderRadius: '2px',
+            marginBottom: '16px'
+          }}></div>
 
-      {/* ── Header ── */}
-      <h1 style={{
-        fontSize: '22px',
-        fontWeight: 500,
-        color: '#f8fafc',
-        letterSpacing: '0.08em',
-        marginBottom: '8px',
-      }}>
-        Messages
-      </h1>
-      <p style={{
-        fontSize: '14px',
-        color: '#94a3b8',
-        letterSpacing: '0.08em',
-        marginBottom: '32px',
-      }}>
-        Your accepted connections
-      </p>
+          <h1 style={{
+            fontFamily: "'DM Serif Display', serif",
+            fontSize: '40px',
+            fontWeight: '400',
+            fontStyle: 'italic',
+            color: '#F5F0E8',
+            marginBottom: '8px'
+          }}>
+            Messages
+          </h1>
 
-      {/* ── Error state ── */}
-      {error && (
-        <div style={{
-          backgroundColor: '#1e1e2e',
-          border: '1px solid #ef4444',
-          borderRadius: '8px',
-          padding: '12px 16px',
-          marginBottom: '24px',
-          color: '#ef4444',
-          fontSize: '14px',
-        }}>
-          {error}
-        </div>
-      )}
-
-      {/* ── Empty state ── */}
-      {!error && conversations.length === 0 && (
-        <div style={{
-          backgroundColor: '#16213e',
-          border: '1px solid #2a2a4a',
-          borderRadius: '12px',
-          padding: '48px 24px',
-          textAlign: 'center',
-        }}>
-          <p style={{ color: '#f8fafc', fontSize: '16px', marginBottom: '8px' }}>
-            No conversations yet
-          </p>
-          <p style={{ color: '#94a3b8', fontSize: '14px', letterSpacing: '0.08em' }}>
-            Accept connection requests on the Explore page to start chatting.
+          <p style={{
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: '15px',
+            color: '#9A9A8A'
+          }}>
+            {conversations.length} conversation{conversations.length !== 1 ? 's' : ''}
           </p>
         </div>
-      )}
 
-      {/* ── Conversation list ── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-        {conversations.map((conv) => {
-          const other = conv.otherUser
-          const hasUnread = conv.unreadCount > 0
-          const preview = conv.lastMessage
-            ? conv.lastMessage.content.slice(0, 60) + (conv.lastMessage.content.length > 60 ? '…' : '')
-            : 'No messages yet — say hello!'
-
-          return (
-            <div
-              key={conv.connectionId}
-              onClick={() => router.push(`/messages/${conv.connectionId}`)}
+        {/* Conversations List */}
+        {conversations.length === 0 ? (
+          <div style={{
+            background: '#161616',
+            border: '1px solid #1E1E1E',
+            borderRadius: '12px',
+            padding: '60px 24px',
+            textAlign: 'center'
+          }}>
+            <div style={{ fontSize: '48px', marginBottom: '16px' }}>💬</div>
+            <h3 style={{
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: '18px',
+              fontWeight: '600',
+              color: '#F5F0E8',
+              marginBottom: '8px'
+            }}>
+              No messages yet
+            </h3>
+            <p style={{
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: '14px',
+              color: '#9A9A8A',
+              marginBottom: '20px'
+            }}>
+              Connect with builders to start conversations
+            </p>
+            <button
+              onClick={() => router.push('/explore')}
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '16px',
-                padding: '16px',
-                backgroundColor: '#16213e',
-                borderRadius: '12px',
-                cursor: 'pointer',
-                transition: 'background-color 0.15s',
-                border: hasUnread ? '1px solid #6c63ff33' : '1px solid transparent',
+                background: '#F97316',
+                color: '#111111',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '10px 20px',
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer'
               }}
-              onMouseEnter={e => e.currentTarget.style.backgroundColor = '#1e2a4a'}
-              onMouseLeave={e => e.currentTarget.style.backgroundColor = '#16213e'}
             >
-              {/* Avatar */}
-              <div style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '50%',
-                backgroundColor: '#6c63ff33',
-                border: '2px solid #6c63ff55',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-                overflow: 'hidden',
-              }}>
-                {other?.profile_photo ? (
-                  <img
-                    src={other.profile_photo}
-                    alt={other.name}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
-                ) : (
-                  <span style={{
-                    fontSize: '16px',
-                    fontWeight: 500,
-                    color: '#a78bfa',
-                    letterSpacing: '0.05em',
-                  }}>
-                    {getInitials(other?.name)}
-                  </span>
-                )}
-              </div>
-
-              {/* Name + preview */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                  <span style={{
-                    fontSize: '15px',
-                    fontWeight: hasUnread ? 500 : 400,
-                    color: '#f8fafc',
-                    letterSpacing: '0.08em',
-                  }}>
-                    {other?.name || 'Unknown'}
-                  </span>
-                  <span style={{
-                    fontSize: '12px',
-                    color: '#94a3b8',
-                    letterSpacing: '0.05em',
+              Explore Builders
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {conversations.map((conv) => (
+              <button
+                key={conv.connectionId}
+                onClick={() => router.push(`/messages/${conv.connectionId}`)}
+                style={{
+                  background: '#161616',
+                  border: '1px solid #1E1E1E',
+                  borderRadius: '12px',
+                  padding: '16px',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'border-color 0.2s',
+                  display: 'block',
+                  width: '100%'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.borderColor = '#2A2A2A'}
+                onMouseLeave={(e) => e.currentTarget.style.borderColor = '#1E1E1E'}
+              >
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  {/* Avatar */}
+                  <div style={{
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '10px',
+                    background: '#F9731620',
+                    border: '2px solid #F9731640',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '18px',
+                    fontWeight: '600',
+                    color: '#F97316',
                     flexShrink: 0,
-                    marginLeft: '8px',
+                    overflow: 'hidden'
                   }}>
-                    {formatTime(conv.lastMessage?.created_at || conv.createdAt)}
-                  </span>
+                    {conv.otherUser?.profile_photo ? (
+                      <img 
+                        src={conv.otherUser.profile_photo} 
+                        alt=""
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.parentElement.innerText = conv.otherUser?.name?.charAt(0).toUpperCase();
+                        }}
+                      />
+                    ) : (
+                      conv.otherUser?.name?.charAt(0).toUpperCase()
+                    )}
+                  </div>
+
+                  {/* Content */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <div style={{
+                        fontFamily: "'DM Sans', sans-serif",
+                        fontSize: '15px',
+                        fontWeight: '600',
+                        color: '#F5F0E8'
+                      }}>
+                        {conv.otherUser?.name || 'Unknown User'}
+                      </div>
+                      <div style={{
+                        fontFamily: "'DM Sans', sans-serif",
+                        fontSize: '12px',
+                        color: '#6A6A5A'
+                      }}>
+                        {formatTime(conv.timestamp)}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{
+                        fontFamily: "'DM Sans', sans-serif",
+                        fontSize: '14px',
+                        color: '#9A9A8A',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        flex: 1
+                      }}>
+                        {conv.lastMessage?.content || 'Start a conversation'}
+                      </div>
+                      {conv.unreadCount > 0 && (
+                        <div style={{
+                          background: '#F97316',
+                          color: '#111111',
+                          borderRadius: '10px',
+                          padding: '2px 8px',
+                          fontFamily: "'DM Sans', sans-serif",
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          minWidth: '20px',
+                          textAlign: 'center'
+                        }}>
+                          {conv.unreadCount}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{
-                    fontSize: '13px',
-                    color: hasUnread ? '#a78bfa' : '#94a3b8',
-                    fontWeight: hasUnread ? 500 : 400,
-                    letterSpacing: '0.05em',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    maxWidth: '340px',
-                  }}>
-                    {preview}
-                  </span>
-
-                  {/* Unread badge */}
-                  {hasUnread && (
-                    <span style={{
-                      backgroundColor: '#6c63ff',
-                      color: '#fff',
-                      fontSize: '11px',
-                      fontWeight: 500,
-                      borderRadius: '10px',
-                      padding: '2px 7px',
-                      flexShrink: 0,
-                      marginLeft: '8px',
-                    }}>
-                      {conv.unreadCount}
-                    </span>
-                  )}
-                </div>
-
-                {/* College tag */}
-                {other?.college && (
-                  <span style={{
-                    fontSize: '12px',
-                    color: '#94a3b8',
-                    letterSpacing: '0.05em',
-                    marginTop: '4px',
-                    display: 'block',
-                  }}>
-                    {other.college}
-                  </span>
-                )}
-              </div>
-            </div>
-          )
-        })}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
-  )
+  );
 }

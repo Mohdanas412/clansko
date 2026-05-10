@@ -1,50 +1,70 @@
-// app/api/users/update/route.js
-import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
+import { NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic';
 
 export async function PATCH(request) {
-  try {
-    const body = await request.json()
-    const { userId, college, branch, year, bio, skills, looking_for, onboarding_done } = body
-
-    if (!userId) {
-      return NextResponse.json({ error: 'userId is required.' }, { status: 400 })
+  const cookieStore = cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      cookies: {
+        get(name) {
+          return cookieStore.get(name)?.value;
+        },
+      },
     }
+  );
 
-    // Create fresh client directly — avoids any singleton issues on Vercel
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    )
-
-    const updates = { updated_at: new Date().toISOString() }
-    if (college !== undefined)         updates.college = college
-    if (branch !== undefined)          updates.branch = branch
-    if (year !== undefined)            updates.year = year
-    if (bio !== undefined)             updates.bio = bio
-    if (skills !== undefined)          updates.skills = skills
-    if (looking_for !== undefined)     updates.looking_for = looking_for
-    if (onboarding_done !== undefined) updates.onboarding_done = onboarding_done
-
-    console.log('Updating userId:', userId)
-    console.log('Updates:', updates)
-
-    const { data, error } = await supabase
-      .from('users')
-      .update(updates)
-      .eq('id', userId)
-      .select()
-      .single()
-
-    if (error) {
-      console.error('Supabase error:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    return NextResponse.json({ data }, { status: 200 })
-
-  } catch (err) {
-    console.error('Server error:', err)
-    return NextResponse.json({ error: 'Internal server error.' }, { status: 500 })
+  // Get authenticated user from session
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  const body = await request.json();
+  const {
+    name,
+    college,
+    branch,
+    year,
+    bio,
+    skills,
+    looking_for,
+    profile_photo,
+    onboarding_done
+  } = body;
+
+  // Use authenticated user's ID (don't trust client-provided user_id)
+  const userId = user.id;
+
+  // Build update object with only provided fields
+  const updateData = {};
+  if (name !== undefined) updateData.name = name;
+  if (college !== undefined) updateData.college = college;
+  if (branch !== undefined) updateData.branch = branch;
+  if (year !== undefined) updateData.year = year;
+  if (bio !== undefined) updateData.bio = bio;
+  if (skills !== undefined) updateData.skills = skills;
+  if (looking_for !== undefined) updateData.looking_for = looking_for;
+  if (profile_photo !== undefined) updateData.profile_photo = profile_photo;
+  if (onboarding_done !== undefined) updateData.onboarding_done = onboarding_done;
+
+  updateData.updated_at = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from('users')
+    .update(updateData)
+    .eq('id', userId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Update error:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ data }, { status: 200 });
 }

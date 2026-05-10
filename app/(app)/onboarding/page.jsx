@@ -1,404 +1,709 @@
-// app/(app)/onboarding/page.jsx
-'use client'
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { createBrowserClient } from '@supabase/ssr'
+'use client';
 
-const BRANCHES = [
-  'Computer Science', 'Information Technology', 'Electronics & Communication',
-  'Electrical Engineering', 'Mechanical Engineering', 'Civil Engineering',
-  'Chemical Engineering', 'Biotechnology', 'Other'
-]
-
-const SKILL_OPTIONS = [
-  'React', 'Next.js', 'Node.js', 'Python', 'Django', 'Flutter',
-  'React Native', 'UI/UX Design', 'Figma', 'Machine Learning',
-  'Data Science', 'DevOps', 'AWS', 'Firebase', 'MongoDB',
-  'PostgreSQL', 'Java', 'C++', 'Marketing', 'Sales', 'No-code'
-]
-
-const LOOKING_FOR_OPTIONS = [
-  'Co-founder', 'Technical Partner', 'Designer', 'Marketing Partner',
-  'Accountability Partner', 'Just exploring', 'Mentor'
-]
-
-// Create supabase client ONCE outside component — fixes multiple GoTrueClient warning
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-)
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createBrowserClient } from '@supabase/ssr';
+import toast from 'react-hot-toast';
 
 export default function OnboardingPage() {
-  const router = useRouter()
+  const router = useRouter();
+  const [supabase] = useState(() =>
+    createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    )
+  );
 
-  const [step, setStep]               = useState(1)
-  const [userId, setUserId]           = useState(null)
-  const [college, setCollege]         = useState('')
-  const [branch, setBranch]           = useState('')
-  const [year, setYear]               = useState('')
-  const [bio, setBio]                 = useState('')
-  const [skills, setSkills]           = useState([])
-  const [lookingFor, setLookingFor]   = useState('')
-  const [loading, setLoading]         = useState(false)
-  const [error, setError]             = useState('')
-  const [pageLoading, setPageLoading] = useState(true)
+  const [currentUser, setCurrentUser] = useState(null);
+  const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Form data
+  const [name, setName] = useState('');
+  const [college, setCollege] = useState('');
+  const [branch, setBranch] = useState('');
+  const [year, setYear] = useState('');
+  const [bio, setBio] = useState('');
+  const [skills, setSkills] = useState([]);
+  const [skillInput, setSkillInput] = useState('');
+  const [lookingFor, setLookingFor] = useState('');
 
   useEffect(() => {
-    async function getUser() {
-      try {
-        // Only use auth methods — NO direct DB calls here
-        // Direct DB calls fail on Vercel due to missing apikey header
-        const { data: userData } = await supabase.auth.getUser()
-
-        if (userData?.user?.id) {
-          setUserId(userData.user.id)
-          setPageLoading(false)
-          return
-        }
-
-        // Fallback to session
-        const { data: sessionData } = await supabase.auth.getSession()
-        if (sessionData?.session?.user?.id) {
-          setUserId(sessionData.session.user.id)
-          setPageLoading(false)
-          return
-        }
-
-        // No session found — send to login
-        router.push('/login')
-
-      } catch (err) {
-        console.error('Auth error:', err)
-        router.push('/login')
+    async function checkAuth() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push('/login');
+        return;
       }
+
+      const { data: userData } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (userData?.onboarding_done) {
+        router.push('/feed');
+        return;
+      }
+
+      setCurrentUser(user);
+      setLoading(false);
     }
-    getUser()
-  }, [])
 
-  function toggleSkill(skill) {
-    setSkills(prev =>
-      prev.includes(skill)
-        ? prev.filter(s => s !== skill)
-        : [...prev, skill]
-    )
-  }
+    checkAuth();
+  }, [supabase, router]);
 
-  function handleNext() {
-    setError('')
+  const handleAddSkill = () => {
+    if (skillInput.trim() && skills.length < 5) {
+      setSkills([...skills, skillInput.trim()]);
+      setSkillInput('');
+    }
+  };
+
+  const handleRemoveSkill = (index) => {
+    setSkills(skills.filter((_, i) => i !== index));
+  };
+
+  const handleNext = () => {
     if (step === 1) {
-      if (!college.trim()) return setError('Please enter your college name.')
-      if (!branch)         return setError('Please select your branch.')
-      if (!year)           return setError('Please select your year.')
+      if (!name.trim() || !college.trim() || !branch.trim() || !year) {
+        toast.error('Please fill all fields');
+        return;
+      }
     }
     if (step === 2) {
-      if (!bio.trim())         return setError('Please write a short bio.')
-      if (skills.length === 0) return setError('Select at least one skill.')
+      if (!bio.trim()) {
+        toast.error('Please write a short bio');
+        return;
+      }
     }
-    setStep(prev => prev + 1)
+    setStep(step + 1);
+  };
+
+  const handleBack = () => {
+    setStep(step - 1);
+  };
+
+  const handleSubmit = async () => {
+  if (!lookingFor) {
+    toast.error('Please select what you&apos;re looking for');
+    return;
   }
 
-  async function handleSubmit() {
-    setError('')
-    if (!lookingFor) return setError('Please select what you are looking for.')
+  setSubmitting(true);
 
-    setLoading(true)
+  try {
+    // Verify session is still valid
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.error('Session expired');
+      router.push('/login');
+      return;
+    }
 
-    try {
-      // Get userId fresh — never rely on state alone
-      let finalUserId = null
-
-      const { data: userData } = await supabase.auth.getUser()
-      if (userData?.user?.id) {
-        finalUserId = userData.user.id
-      }
-
-      if (!finalUserId) {
-        const { data: sessionData } = await supabase.auth.getSession()
-        if (sessionData?.session?.user?.id) {
-          finalUserId = sessionData.session.user.id
-        }
-      }
-
-      if (!finalUserId) {
-        setError('Session expired. Please log in again.')
-        setLoading(false)
-        return
-      }
-
-      // Call our API route — never call Supabase DB directly from client
-      const res = await fetch('/api/users/update', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: finalUserId,
-          college,
-          branch,
-          year: parseInt(year),
-          bio,
-          skills,
-          looking_for: [lookingFor],
-          onboarding_done: true,
-        }),
+    // Don't send user_id - the API gets it from the authenticated session
+    const response = await fetch('/api/users/update', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name,
+        college,
+        branch,
+        year,
+        bio,
+        skills,
+        looking_for: [lookingFor],
+        onboarding_done: true
       })
+    });
 
-      const data = await res.json()
+    const result = await response.json();
 
-      if (!res.ok) {
-        setError(data.error || 'Something went wrong. Try again.')
-        setLoading(false)
-        return
-      }
-      // Use window.location instead of router.push
-      // router.push sometimes fails after auth state changes in production
-      window.location.href = '/feed'
-
-    } catch (err) {
-      console.error('Submit error:', err)
-      setError('Network error. Check your connection.')
-      setLoading(false)
+    if (response.ok) {
+      toast.success('Welcome to ClanSko!');
+      window.location.href = '/feed';
+    } else {
+      console.error('API Error:', result);
+      toast.error(result.error || 'Failed to save profile');
     }
+  } catch (error) {
+    console.error('Submission error:', error);
+    toast.error('Something went wrong');
   }
 
-  // Loading screen while checking session
-  if (pageLoading) {
+  setSubmitting(false);
+};
+
+  if (loading) {
     return (
-      <main style={{ backgroundColor: '#0f0f1a', minHeight: '100vh' }}
-        className="flex items-center justify-center">
-        <p style={{ color: '#94a3b8' }} className="text-sm">Loading...</p>
-      </main>
-    )
+      <div style={{
+        minHeight: '100vh',
+        background: '#111111',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <div style={{
+          fontFamily: "'DM Sans', sans-serif",
+          fontSize: '15px',
+          color: '#9A9A8A'
+        }}>
+          Loading...
+        </div>
+      </div>
+    );
   }
 
   return (
-    <main
-      style={{ backgroundColor: '#0f0f1a', minHeight: '100vh' }}
-      className="flex items-center justify-center px-4 py-16"
-    >
-      <div className="w-full max-w-md">
-
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <p className="text-lg font-light" style={{ color: '#a78bfa', letterSpacing: '0.08em' }}>
-            clansko
-          </p>
-          <h1 className="text-2xl font-medium mt-3 mb-1" style={{ color: '#f8fafc' }}>
-            Set up your profile
-          </h1>
-          <p className="text-sm" style={{ color: '#94a3b8' }}>
+    <div style={{
+      minHeight: '100vh',
+      background: '#111111',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '24px'
+    }}>
+      <div style={{
+        maxWidth: '600px',
+        width: '100%'
+      }}>
+        
+        {/* Progress Bar */}
+        <div style={{ marginBottom: '40px' }}>
+          <div style={{
+            display: 'flex',
+            gap: '8px',
+            marginBottom: '12px'
+          }}>
+            {[1, 2, 3].map((s) => (
+              <div key={s} style={{
+                flex: 1,
+                height: '4px',
+                background: s <= step ? '#F97316' : '#1E1E1E',
+                borderRadius: '2px',
+                transition: 'background 0.3s'
+              }}></div>
+            ))}
+          </div>
+          <div style={{
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: '13px',
+            color: '#9A9A8A',
+            textAlign: 'center'
+          }}>
             Step {step} of 3
-          </p>
-        </div>
-
-        {/* Progress bar */}
-        <div className="w-full h-1 rounded-full mb-8" style={{ backgroundColor: '#16213e' }}>
-          <div
-            className="h-1 rounded-full transition-all duration-300"
-            style={{ backgroundColor: '#6c63ff', width: `${(step / 3) * 100}%` }}
-          />
-        </div>
-
-        {/* Card */}
-        <div className="p-6 rounded-2xl border border-white/10" style={{ backgroundColor: '#16213e' }}>
-
-          {/* STEP 1 */}
-          {step === 1 && (
-            <div className="flex flex-col gap-4">
-              <h2 className="text-lg font-medium" style={{ color: '#f8fafc' }}>
-                Where do you study?
-              </h2>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium" style={{ color: '#94a3b8', letterSpacing: '0.08em' }}>
-                  COLLEGE NAME
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. VIT Vellore, NIT Trichy..."
-                  value={college}
-                  onChange={e => setCollege(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg text-sm outline-none"
-                  style={{ backgroundColor: '#0f0f1a', border: '1px solid rgba(255,255,255,0.1)', color: '#f8fafc' }}
-                  onFocus={e => e.target.style.borderColor = '#6c63ff'}
-                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium" style={{ color: '#94a3b8', letterSpacing: '0.08em' }}>
-                  BRANCH
-                </label>
-                <select
-                  value={branch}
-                  onChange={e => setBranch(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg text-sm outline-none"
-                  style={{ backgroundColor: '#0f0f1a', border: '1px solid rgba(255,255,255,0.1)', color: branch ? '#f8fafc' : '#94a3b8' }}
-                  onFocus={e => e.target.style.borderColor = '#6c63ff'}
-                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
-                >
-                  <option value="">Select branch</option>
-                  {BRANCHES.map(b => (
-                    <option key={b} value={b} style={{ backgroundColor: '#16213e' }}>{b}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium" style={{ color: '#94a3b8', letterSpacing: '0.08em' }}>
-                  YEAR
-                </label>
-                <select
-                  value={year}
-                  onChange={e => setYear(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg text-sm outline-none"
-                  style={{ backgroundColor: '#0f0f1a', border: '1px solid rgba(255,255,255,0.1)', color: year ? '#f8fafc' : '#94a3b8' }}
-                  onFocus={e => e.target.style.borderColor = '#6c63ff'}
-                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
-                >
-                  <option value="">Select year</option>
-                  {[1, 2, 3, 4].map(y => (
-                    <option key={y} value={y} style={{ backgroundColor: '#16213e' }}>Year {y}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 2 */}
-          {step === 2 && (
-            <div className="flex flex-col gap-4">
-              <h2 className="text-lg font-medium" style={{ color: '#f8fafc' }}>
-                Tell us about yourself
-              </h2>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium" style={{ color: '#94a3b8', letterSpacing: '0.08em' }}>
-                  BIO <span style={{ color: '#6c63ff' }}>(max 200 chars)</span>
-                </label>
-                <textarea
-                  placeholder="e.g. Building a marketplace for college students. Interested in fintech and edtech."
-                  value={bio}
-                  onChange={e => setBio(e.target.value.slice(0, 200))}
-                  rows={3}
-                  className="w-full px-4 py-3 rounded-lg text-sm outline-none resize-none"
-                  style={{ backgroundColor: '#0f0f1a', border: '1px solid rgba(255,255,255,0.1)', color: '#f8fafc' }}
-                  onFocus={e => e.target.style.borderColor = '#6c63ff'}
-                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
-                />
-                <p className="text-xs text-right" style={{ color: '#94a3b8' }}>{bio.length}/200</p>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-medium" style={{ color: '#94a3b8', letterSpacing: '0.08em' }}>
-                  YOUR SKILLS <span style={{ color: '#6c63ff' }}>(pick all that apply)</span>
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {SKILL_OPTIONS.map(skill => {
-                    const selected = skills.includes(skill)
-                    return (
-                      <button
-                        key={skill}
-                        type="button"
-                        onClick={() => toggleSkill(skill)}
-                        className="px-3 py-1 rounded-full text-xs font-medium transition-all"
-                        style={{
-                          backgroundColor: selected ? '#6c63ff' : 'transparent',
-                          border: `1px solid ${selected ? '#6c63ff' : 'rgba(255,255,255,0.15)'}`,
-                          color: selected ? '#fff' : '#94a3b8',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {skill}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 3 */}
-          {step === 3 && (
-            <div className="flex flex-col gap-4">
-              <h2 className="text-lg font-medium" style={{ color: '#f8fafc' }}>
-                What are you looking for?
-              </h2>
-              <p className="text-sm" style={{ color: '#94a3b8' }}>
-                This helps others know how to connect with you.
-              </p>
-
-              <div className="flex flex-col gap-2">
-                {LOOKING_FOR_OPTIONS.map(option => {
-                  const selected = lookingFor === option
-                  return (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() => setLookingFor(option)}
-                      className="w-full px-4 py-3 rounded-lg text-sm font-medium text-left transition-all"
-                      style={{
-                        backgroundColor: selected ? '#6c63ff22' : 'transparent',
-                        border: `1px solid ${selected ? '#6c63ff' : 'rgba(255,255,255,0.1)'}`,
-                        color: selected ? '#a78bfa' : '#94a3b8',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {option}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Error */}
-          {error && (
-            <div className="mt-4 px-4 py-3 rounded-lg text-sm"
-              style={{ backgroundColor: '#ff4d4d11', border: '1px solid #ff4d4d44', color: '#ff4d4d' }}>
-              {error}
-            </div>
-          )}
-
-          {/* Buttons */}
-          <div className="flex gap-3 mt-6">
-            {step > 1 && (
-              <button
-                type="button"
-                onClick={() => { setStep(prev => prev - 1); setError('') }}
-                disabled={loading}
-                className="flex-1 py-3 rounded-lg text-sm font-medium"
-                style={{ backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', cursor: 'pointer' }}
-              >
-                Back
-              </button>
-            )}
-
-            {step < 3 ? (
-              <button
-                type="button"
-                onClick={handleNext}
-                className="flex-1 py-3 rounded-lg text-sm font-medium"
-                style={{ backgroundColor: '#6c63ff', color: '#fff', cursor: 'pointer' }}
-              >
-                Continue →
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={loading}
-                className="flex-1 py-3 rounded-lg text-sm font-medium"
-                style={{
-                  backgroundColor: loading ? '#6c63ff88' : '#6c63ff',
-                  color: '#fff',
-                  cursor: loading ? 'not-allowed' : 'pointer'
-                }}
-              >
-                {loading ? 'Saving...' : 'Finish setup →'}
-              </button>
-            )}
           </div>
         </div>
+
+        {/* Card Container */}
+        <div style={{
+          background: '#161616',
+          border: '1px solid #1E1E1E',
+          borderRadius: '12px',
+          padding: '40px'
+        }}>
+          
+          {/* Step 1: Basic Info */}
+          {step === 1 && (
+            <div>
+              {/* Orange accent bar */}
+              <div style={{
+                width: '28px',
+                height: '3px',
+                background: '#F97316',
+                borderRadius: '2px',
+                marginBottom: '16px'
+              }}></div>
+
+              <h2 style={{
+                fontFamily: "'DM Serif Display', serif",
+                fontSize: '32px',
+                fontWeight: '400',
+                fontStyle: 'italic',
+                color: '#F5F0E8',
+                marginBottom: '8px'
+              }}>
+                Let&apos;s get started
+              </h2>
+
+              <p style={{
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: '15px',
+                color: '#9A9A8A',
+                marginBottom: '32px'
+              }}>
+                Tell us about yourself
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div>
+                  <label style={{
+                    display: 'block',
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    color: '#9A9A8A',
+                    marginBottom: '8px'
+                  }}>
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Enter your name"
+                    style={{
+                      width: '100%',
+                      background: '#111111',
+                      border: '1px solid #2A2A2A',
+                      borderRadius: '8px',
+                      padding: '12px',
+                      fontFamily: "'DM Sans', sans-serif",
+                      fontSize: '14px',
+                      color: '#F5F0E8'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{
+                    display: 'block',
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    color: '#9A9A8A',
+                    marginBottom: '8px'
+                  }}>
+                    College
+                  </label>
+                  <input
+                    type="text"
+                    value={college}
+                    onChange={(e) => setCollege(e.target.value)}
+                    placeholder="e.g., IIT Delhi, NIT Trichy"
+                    style={{
+                      width: '100%',
+                      background: '#111111',
+                      border: '1px solid #2A2A2A',
+                      borderRadius: '8px',
+                      padding: '12px',
+                      fontFamily: "'DM Sans', sans-serif",
+                      fontSize: '14px',
+                      color: '#F5F0E8'
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div>
+                    <label style={{
+                      display: 'block',
+                      fontFamily: "'DM Sans', sans-serif",
+                      fontSize: '13px',
+                      fontWeight: '500',
+                      color: '#9A9A8A',
+                      marginBottom: '8px'
+                    }}>
+                      Branch
+                    </label>
+                    <input
+                      type="text"
+                      value={branch}
+                      onChange={(e) => setBranch(e.target.value)}
+                      placeholder="e.g., CSE"
+                      style={{
+                        width: '100%',
+                        background: '#111111',
+                        border: '1px solid #2A2A2A',
+                        borderRadius: '8px',
+                        padding: '12px',
+                        fontFamily: "'DM Sans', sans-serif",
+                        fontSize: '14px',
+                        color: '#F5F0E8'
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{
+                      display: 'block',
+                      fontFamily: "'DM Sans', sans-serif",
+                      fontSize: '13px',
+                      fontWeight: '500',
+                      color: '#9A9A8A',
+                      marginBottom: '8px'
+                    }}>
+                      Year
+                    </label>
+                    <select
+                      value={year}
+                      onChange={(e) => setYear(e.target.value)}
+                      style={{
+                        width: '100%',
+                        background: '#111111',
+                        border: '1px solid #2A2A2A',
+                        borderRadius: '8px',
+                        padding: '12px',
+                        fontFamily: "'DM Sans', sans-serif",
+                        fontSize: '14px',
+                        color: '#F5F0E8'
+                      }}
+                    >
+                      <option value="">Select</option>
+                      <option value="1">1st Year</option>
+                      <option value="2">2nd Year</option>
+                      <option value="3">3rd Year</option>
+                      <option value="4">4th Year</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={handleNext}
+                style={{
+                  width: '100%',
+                  background: '#F97316',
+                  color: '#111111',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '14px',
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: '15px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  marginTop: '32px'
+                }}
+              >
+                Continue
+              </button>
+            </div>
+          )}
+
+          {/* Step 2: Bio & Skills */}
+          {step === 2 && (
+            <div>
+              <div style={{
+                width: '28px',
+                height: '3px',
+                background: '#F97316',
+                borderRadius: '2px',
+                marginBottom: '16px'
+              }}></div>
+
+              <h2 style={{
+                fontFamily: "'DM Serif Display', serif",
+                fontSize: '32px',
+                fontWeight: '400',
+                fontStyle: 'italic',
+                color: '#F5F0E8',
+                marginBottom: '8px'
+              }}>
+                Tell your story
+              </h2>
+
+              <p style={{
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: '15px',
+                color: '#9A9A8A',
+                marginBottom: '32px'
+              }}>
+                Help others understand who you are
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div>
+                  <label style={{
+                    display: 'block',
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    color: '#9A9A8A',
+                    marginBottom: '8px'
+                  }}>
+                    Bio
+                  </label>
+                  <textarea
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    placeholder="What drives you? What are you building? What's your vision?"
+                    rows={5}
+                    style={{
+                      width: '100%',
+                      background: '#111111',
+                      border: '1px solid #2A2A2A',
+                      borderRadius: '8px',
+                      padding: '12px',
+                      fontFamily: "'DM Sans', sans-serif",
+                      fontSize: '14px',
+                      color: '#F5F0E8',
+                      resize: 'vertical'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{
+                    display: 'block',
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    color: '#9A9A8A',
+                    marginBottom: '8px'
+                  }}>
+                    Skills (Max 5)
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                    <input
+                      type="text"
+                      value={skillInput}
+                      onChange={(e) => setSkillInput(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleAddSkill()}
+                      placeholder="e.g., React, Python, Design"
+                      disabled={skills.length >= 5}
+                      style={{
+                        flex: 1,
+                        background: '#111111',
+                        border: '1px solid #2A2A2A',
+                        borderRadius: '8px',
+                        padding: '10px 12px',
+                        fontFamily: "'DM Sans', sans-serif",
+                        fontSize: '14px',
+                        color: '#F5F0E8'
+                      }}
+                    />
+                    <button
+                      onClick={handleAddSkill}
+                      disabled={!skillInput.trim() || skills.length >= 5}
+                      style={{
+                        background: '#F97316',
+                        color: '#111111',
+                        border: 'none',
+                        borderRadius: '8px',
+                        padding: '10px 20px',
+                        fontFamily: "'DM Sans', sans-serif",
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        cursor: !skillInput.trim() || skills.length >= 5 ? 'not-allowed' : 'pointer',
+                        opacity: !skillInput.trim() || skills.length >= 5 ? 0.5 : 1
+                      }}
+                    >
+                      Add
+                    </button>
+                  </div>
+
+                  {skills.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {skills.map((skill, index) => (
+                        <div key={index} style={{
+                          background: '#F9731610',
+                          border: '1px solid #F9731640',
+                          color: '#F97316',
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          fontSize: '13px',
+                          fontFamily: "'DM Sans', sans-serif",
+                          fontWeight: '500',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px'
+                        }}>
+                          {skill}
+                          <button
+                            onClick={() => handleRemoveSkill(index)}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: '#F97316',
+                              cursor: 'pointer',
+                              fontSize: '16px',
+                              padding: 0,
+                              lineHeight: 1
+                            }}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', marginTop: '32px' }}>
+                <button
+                  onClick={handleBack}
+                  style={{
+                    flex: 1,
+                    background: 'transparent',
+                    color: '#9A9A8A',
+                    border: '1px solid #2A2A2A',
+                    borderRadius: '8px',
+                    padding: '14px',
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '15px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Back
+                </button>
+                <button
+                  onClick={handleNext}
+                  style={{
+                    flex: 1,
+                    background: '#F97316',
+                    color: '#111111',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '14px',
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '15px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Continue
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Looking For */}
+          {step === 3 && (
+            <div>
+              <div style={{
+                width: '28px',
+                height: '3px',
+                background: '#F97316',
+                borderRadius: '2px',
+                marginBottom: '16px'
+              }}></div>
+
+              <h2 style={{
+                fontFamily: "'DM Serif Display', serif",
+                fontSize: '32px',
+                fontWeight: '400',
+                fontStyle: 'italic',
+                color: '#F5F0E8',
+                marginBottom: '8px'
+              }}>
+                What are you here for?
+              </h2>
+
+              <p style={{
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: '15px',
+                color: '#9A9A8A',
+                marginBottom: '32px'
+              }}>
+                This helps us connect you with the right people
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {[
+                  { value: 'Co-founder', emoji: '🚀', desc: 'Find someone to build with' },
+                  { value: 'Collaborator', emoji: '🤝', desc: 'Work together on projects' },
+                  { value: 'Mentor', emoji: '🎓', desc: 'Learn from experienced builders' },
+                  { value: 'Accountability Partner', emoji: '⚡', desc: 'Stay consistent with goals' },
+                  { value: 'Just Exploring', emoji: '👀', desc: 'See what&apos;s happening' }
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => setLookingFor(option.value)}
+                    style={{
+                      background: lookingFor === option.value ? '#F9731610' : '#111111',
+                      border: `1px solid ${lookingFor === option.value ? '#F97316' : '#2A2A2A'}`,
+                      borderRadius: '8px',
+                      padding: '16px',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <span style={{ fontSize: '24px' }}>{option.emoji}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{
+                          fontFamily: "'DM Sans', sans-serif",
+                          fontSize: '15px',
+                          fontWeight: '600',
+                          color: lookingFor === option.value ? '#F97316' : '#F5F0E8',
+                          marginBottom: '2px'
+                        }}>
+                          {option.value}
+                        </div>
+                        <div style={{
+                          fontFamily: "'DM Sans', sans-serif",
+                          fontSize: '13px',
+                          color: '#9A9A8A'
+                        }}>
+                          {option.desc}
+                        </div>
+                      </div>
+                      {lookingFor === option.value && (
+                        <span style={{ color: '#F97316', fontSize: '20px' }}>✓</span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', marginTop: '32px' }}>
+                <button
+                  onClick={handleBack}
+                  style={{
+                    flex: 1,
+                    background: 'transparent',
+                    color: '#9A9A8A',
+                    border: '1px solid #2A2A2A',
+                    borderRadius: '8px',
+                    padding: '14px',
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '15px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Back
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  disabled={submitting}
+                  style={{
+                    flex: 1,
+                    background: '#F97316',
+                    color: '#111111',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '14px',
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '15px',
+                    fontWeight: '600',
+                    cursor: submitting ? 'not-allowed' : 'pointer',
+                    opacity: submitting ? 0.6 : 1
+                  }}
+                >
+                  {submitting ? 'Saving...' : 'Complete Setup'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer Text */}
+        <div style={{
+          textAlign: 'center',
+          marginTop: '24px',
+          fontFamily: "'DM Sans', sans-serif",
+          fontSize: '13px',
+          color: '#6A6A5A'
+        }}>
+          Welcome to ClanSko — where builders find their tribe
+        </div>
       </div>
-    </main>
-  )
+    </div>
+  );
 }

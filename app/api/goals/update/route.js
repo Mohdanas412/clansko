@@ -1,97 +1,74 @@
-// app/api/goals/update/route.js
-// PATCH → mark a goal as done or pending
-//         when marked done → increment streak_count
-//         when marked pending → decrement streak_count (min 0)
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
+import { NextResponse } from 'next/server';
 
-export const dynamic = 'force-dynamic'
-import { NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+export const dynamic = 'force-dynamic';
 
-function getSupabase() {
-  const cookieStore = cookies()
-  return createServerClient(
+export async function PATCH(request) {
+  const cookieStore = cookies();
+  const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
-        get(name) { return cookieStore.get(name)?.value },
-        set(name, value, options) { try { cookieStore.set({ name, value, ...options }) } catch {} },
-        remove(name, options) { try { cookieStore.set({ name, value: '', ...options }) } catch {} },
+        get(name) {
+          return cookieStore.get(name)?.value;
+        },
       },
     }
-  )
-}
+  );
 
-// ─── PATCH /api/goals/update ──────────────────────────────────────────────────
-export async function PATCH(request) {
-  try {
-    const { goalId, userId, status } = await request.json()
-
-    // Validate all required fields
-    if (!goalId || !userId || !status)
-      return NextResponse.json(
-        { error: 'goalId, userId, and status are required.' },
-        { status: 400 }
-      )
-
-    // Only two valid statuses
-    if (status !== 'done' && status !== 'pending')
-      return NextResponse.json(
-        { error: 'Status must be "done" or "pending".' },
-        { status: 400 }
-      )
-
-    const supabase = getSupabase()
-
-    // Step 1 — fetch the existing goal
-    // We need current streak_count to increment/decrement it
-    const { data: goal, error: fetchError } = await supabase
-      .from('goals')
-      .select('id, user_id, status, streak_count')
-      .eq('id', goalId)
-      .single()
-
-    if (fetchError || !goal)
-      return NextResponse.json({ error: 'Goal not found.' }, { status: 404 })
-
-    // Step 2 — make sure this goal belongs to the user making the request
-    if (goal.user_id !== userId)
-      return NextResponse.json(
-        { error: 'You can only update your own goals.' },
-        { status: 403 }
-      )
-
-    // Step 3 — calculate new streak_count
-    // marking done   → streak goes UP by 1
-    // marking pending → streak goes DOWN by 1 (never below 0)
-    let newStreak = goal.streak_count
-    if (status === 'done' && goal.status !== 'done') {
-      // only increment if it wasn't already done (prevent double-counting)
-      newStreak = goal.streak_count + 1
-    } else if (status === 'pending' && goal.status === 'done') {
-      // only decrement if it was previously done (un-checking)
-      newStreak = Math.max(0, goal.streak_count - 1)
-    }
-    // if status is same as current → streak doesn't change
-
-    // Step 4 — update the goal in the database
-    const { data, error: updateError } = await supabase
-      .from('goals')
-      .update({
-        status:       status,
-        streak_count: newStreak,
-        updated_at:   new Date().toISOString(),
-      })
-      .eq('id', goalId)
-      .select()
-      .single()
-
-    if (updateError)
-      return NextResponse.json({ error: updateError.message }, { status: 500 })
-
-    return NextResponse.json({ data }, { status: 200 })
-  } catch (err) {
-    return NextResponse.json({ error: 'Internal server error.' }, { status: 500 })
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  const body = await request.json();
+  const { goal_id, status } = body;
+
+  if (!goal_id || !status) {
+    return NextResponse.json({ error: 'goal_id and status required' }, { status: 400 });
+  }
+
+  // Get current goal
+  const { data: currentGoal, error: fetchError } = await supabase
+    .from('goals')
+    .select('*')
+    .eq('id', goal_id)
+    .single();
+
+  if (fetchError || !currentGoal) {
+    return NextResponse.json({ error: 'Goal not found' }, { status: 404 });
+  }
+
+  // Verify ownership
+  if (currentGoal.user_id !== user.id) {
+    return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+  }
+
+  // Calculate new streak count
+  let newStreakCount = currentGoal.streak_count;
+  if (status === 'done' && currentGoal.status === 'pending') {
+    newStreakCount = currentGoal.streak_count + 1;
+  } else if (status === 'pending' && currentGoal.status === 'done') {
+    newStreakCount = Math.max(0, currentGoal.streak_count - 1);
+  }
+
+  // Update goal
+  const { data, error } = await supabase
+    .from('goals')
+    .update({
+      status,
+      streak_count: newStreakCount,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', goal_id)
+    .select()
+    .single();
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ data }, { status: 200 });
 }

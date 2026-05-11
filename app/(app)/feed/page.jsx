@@ -1,4 +1,3 @@
-// app/(app)/feed/page.jsx
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -51,6 +50,7 @@ export default function FeedPage() {
 
   const [currentUser, setCurrentUser] = useState(null)
   const [posts, setPosts] = useState([])
+  const [postTeams, setPostTeams] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [showModal, setShowModal] = useState(false)
@@ -76,7 +76,24 @@ export default function FeedPage() {
       const res = await fetch('/api/posts')
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Failed to load posts')
-      setPosts(json.data || [])
+      const fetchedPosts = json.data || []
+      setPosts(fetchedPosts)
+
+      // Fetch team members for all posts in parallel
+      const teamResults = await Promise.all(
+        fetchedPosts.map(p =>
+          fetch(`/api/projects/${p.id}`)
+            .then(r => r.json())
+            .then(j => ({
+              postId: p.id,
+              members: (j.data?.members || []).filter(m => m.status === 'accepted'),
+            }))
+            .catch(() => ({ postId: p.id, members: [] }))
+        )
+      )
+      const teamMap = {}
+      teamResults.forEach(({ postId, members }) => { teamMap[postId] = members })
+      setPostTeams(teamMap)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -258,6 +275,8 @@ export default function FeedPage() {
             currentUserId={currentUser?.id}
             onReact={handleReact}
             onExpand={() => setExpandedPost(post)}
+            teamMembers={postTeams[post.id] || []}
+            router={router}
           />
         ))}
       </main>
@@ -285,7 +304,7 @@ export default function FeedPage() {
 
           <label style={labelStyle}>DESCRIPTION *</label>
           <textarea
-            placeholder="Describe the problem, your solution, and where You&apos;re at..."
+            placeholder="Describe the problem, your solution, and where you&apos;re at..."
             value={form.description}
             onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
             style={{ ...inputStyle, height: '110px', resize: 'vertical' }}
@@ -385,10 +404,11 @@ export default function FeedPage() {
   )
 }
 
-// ── Post Card ──
-function PostCard({ post, currentUserId, onReact, onExpand }) {
+// ── Post Card ──────────────────────────────────────────────────────────────────
+function PostCard({ post, currentUserId, onReact, onExpand, teamMembers, router }) {
   const userReaction = post.reactions_by_user?.[currentUserId]
   const stage = STAGE_STYLES[post.stage] || STAGE_STYLES.idea
+  const isOwner = post.user_id === currentUserId
 
   return (
     <div
@@ -399,7 +419,6 @@ function PostCard({ post, currentUserId, onReact, onExpand }) {
         marginBottom: '12px',
         border: '1px solid #1E1E1E',
         transition: 'border-color 0.2s',
-        cursor: 'pointer',
       }}
       onMouseEnter={e => e.currentTarget.style.borderColor = '#2A2A2A'}
       onMouseLeave={e => e.currentTarget.style.borderColor = '#1E1E1E'}
@@ -412,8 +431,12 @@ function PostCard({ post, currentUserId, onReact, onExpand }) {
           border: '1px solid #F9731640',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: '14px', fontWeight: 600, color: '#F97316', flexShrink: 0,
+          overflow: 'hidden',
         }}>
-          {post.users?.name?.charAt(0).toUpperCase() || '?'}
+          {post.users?.profile_photo
+            ? <img src={post.users.profile_photo} alt={post.users.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : post.users?.name?.charAt(0).toUpperCase() || '?'
+          }
         </div>
         <div style={{ flex: 1 }}>
           <p style={{ fontSize: '14px', fontWeight: 500, color: '#F5F0E8', margin: 0 }}>
@@ -441,7 +464,7 @@ function PostCard({ post, currentUserId, onReact, onExpand }) {
       {/* Title + description */}
       <h3
         onClick={onExpand}
-        style={{ fontSize: '16px', fontWeight: 600, marginBottom: '6px', color: '#F5F0E8', lineHeight: 1.4 }}
+        style={{ fontSize: '16px', fontWeight: 600, marginBottom: '6px', color: '#F5F0E8', lineHeight: 1.4, cursor: 'pointer' }}
       >
         {post.title}
       </h3>
@@ -472,6 +495,75 @@ function PostCard({ post, currentUserId, onReact, onExpand }) {
               {item}
             </span>
           ))}
+        </div>
+      )}
+
+      {/* Team row */}
+      {(teamMembers.length > 0 || isOwner) && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          marginBottom: '14px', paddingBottom: '14px', borderBottom: '1px solid #1E1E1E',
+          gap: 10, flexWrap: 'wrap',
+        }}>
+          {/* Avatars + count */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {teamMembers.length > 0 ? (
+              <>
+                <div style={{ display: 'flex' }}>
+                  {teamMembers.slice(0, 4).map((m, i) => (
+                    <div
+                      key={m.id}
+                      title={m.profile?.name}
+                      style={{
+                        width: 26, height: 26, borderRadius: '50%',
+                        background: '#F9731620', border: '2px solid #161616',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 11, fontWeight: 600, color: '#F97316',
+                        marginLeft: i === 0 ? 0 : -8,
+                        overflow: 'hidden', flexShrink: 0,
+                        position: 'relative', zIndex: teamMembers.length - i,
+                      }}
+                    >
+                      {m.profile?.profile_photo
+                        ? <img src={m.profile.profile_photo} alt={m.profile.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : m.profile?.name?.charAt(0).toUpperCase() || '?'
+                      }
+                    </div>
+                  ))}
+                </div>
+                <span style={{ fontSize: 12, color: '#6A6A5A' }}>
+                  {teamMembers.length} member{teamMembers.length !== 1 ? 's' : ''}
+                </span>
+                <button
+                  onClick={() => router.push(`/projects/${post.id}`)}
+                  style={{
+                    background: 'none', border: 'none', color: '#F97316',
+                    fontSize: 12, cursor: 'pointer', padding: 0,
+                    fontFamily: "'DM Sans', sans-serif",
+                  }}
+                >
+                  View team →
+                </button>
+              </>
+            ) : (
+              <span style={{ fontSize: 12, color: '#6A6A5A' }}>No team members yet</span>
+            )}
+          </div>
+
+          {/* Invite button — owner only */}
+          {isOwner && (
+            <button
+              onClick={() => router.push(`/projects/${post.id}`)}
+              style={{
+                background: 'transparent', border: '1px solid #2A2A2A',
+                color: '#F97316', borderRadius: 6,
+                padding: '5px 12px', fontSize: 12, cursor: 'pointer',
+                fontFamily: "'DM Sans', sans-serif", fontWeight: 600,
+              }}
+            >
+              + Invite to team
+            </button>
+          )}
         </div>
       )}
 
@@ -520,7 +612,7 @@ function PostCard({ post, currentUserId, onReact, onExpand }) {
   )
 }
 
-// ── Modal ──
+// ── Modal ──────────────────────────────────────────────────────────────────────
 function Modal({ children, onClose }) {
   return (
     <div
@@ -551,7 +643,7 @@ function Modal({ children, onClose }) {
   )
 }
 
-// ── Shared styles ──
+// ── Shared styles ──────────────────────────────────────────────────────────────
 const labelStyle = {
   display: 'block',
   fontSize: '11px',
@@ -577,7 +669,7 @@ const inputStyle = {
   lineHeight: '1.5',
 }
 
-// ── Expanded Post ──
+// ── Expanded Post ──────────────────────────────────────────────────────────────
 function ExpandedPost({ post, currentUser, onClose, onReact, onCommentAdded }) {
   const [fullPost, setFullPost] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -654,8 +746,12 @@ function ExpandedPost({ post, currentUser, onClose, onReact, onCommentAdded }) {
           backgroundColor: '#F9731620', border: '1px solid #F9731640',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: '13px', fontWeight: 600, color: '#F97316',
+          overflow: 'hidden',
         }}>
-          {displayPost.users?.name?.charAt(0).toUpperCase() || '?'}
+          {displayPost.users?.profile_photo
+            ? <img src={displayPost.users.profile_photo} alt={displayPost.users.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : displayPost.users?.name?.charAt(0).toUpperCase() || '?'
+          }
         </div>
         <div>
           <p style={{ fontSize: '13px', fontWeight: 500, color: '#F5F0E8', margin: 0 }}>{displayPost.users?.name}</p>

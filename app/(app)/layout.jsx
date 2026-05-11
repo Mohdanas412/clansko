@@ -93,6 +93,7 @@ export default function AppLayout({ children }) {
           <Link href="/explore" style={navLinkStyle('/explore')}>Explore</Link>
           <Link href="/messages" style={navLinkStyle('/messages')}>Messages</Link>
           <Link href="/goals" style={navLinkStyle('/goals')}>Goals</Link>
+          <Link href="/projects" style={navLinkStyle('/projects')}>Projects</Link>  {/* ADD THIS */}
           <Link href="/profile" style={navLinkStyle('/profile')}>Profile</Link>
           <button onClick={handleLogout} className="nav-logout-btn" style={{
             backgroundColor: 'transparent',
@@ -127,6 +128,7 @@ export default function AppLayout({ children }) {
           { href: '/explore', label: 'Explore' },
           { href: '/messages', label: 'Chat' },
           { href: '/goals', label: 'Goals' },
+          { href: '/projects', label: 'Projects' },  // ADD THIS
           { href: '/profile', label: 'Profile' },
         ].map(tab => {
           const isActive = pathname === tab.href

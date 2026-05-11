@@ -55,24 +55,28 @@ export default function ProjectPage({ params }) {
   }
 
   async function openInviteModal() {
-    setShowInviteModal(true)
-    setConnectionsLoading(true)
-    try {
-      const res = await fetch('/api/connections')
-      const json = await res.json()
-      if (!res.ok) throw new Error()
-      // Filter out people already on the team
-      const teamUserIds = members.map(m => m.user_id)
-      const eligible = (json.data || []).filter(
-        c => !teamUserIds.includes(c.id)
-      )
-      setConnections(eligible)
-    } catch {
-      toast.error('Could not load connections')
-    } finally {
-      setConnectionsLoading(false)
-    }
+  setShowInviteModal(true)
+  setConnectionsLoading(true)
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    const res = await fetch(`/api/connections?userId=${user.id}`)
+    const json = await res.json()
+    if (!res.ok) throw new Error()
+
+    const teamUserIds = members.map(m => m.user_id)
+
+    // Only accepted connections, not already on team
+    const eligible = (json.data || [])
+      .filter(c => c.status === 'accepted' && !teamUserIds.includes(c.otherUser?.id))
+      .map(c => c.otherUser)  // flatten to just the user object
+
+    setConnections(eligible)
+  } catch {
+    toast.error('Could not load connections')
+  } finally {
+    setConnectionsLoading(false)
   }
+}
 
   async function invitePerson(userId) {
     setInviting(userId)

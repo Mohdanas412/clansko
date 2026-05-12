@@ -1,374 +1,546 @@
-// app/(app)/profile/edit/page.jsx
-// Edit profile page — pre-fills current data, saves via api/users/update
-// Route: /profile/edit
+'use client';
 
-'use client'
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { createBrowserClient } from '@supabase/ssr'
-import toast from 'react-hot-toast'
-
-const BRANCHES = [
-  'Computer Science', 'Information Technology', 'Electronics & Communication',
-  'Electrical Engineering', 'Mechanical Engineering', 'Civil Engineering',
-  'Chemical Engineering', 'Biotechnology', 'Other'
-]
-
-const SKILL_OPTIONS = [
-  'React', 'Next.js', 'Node.js', 'Python', 'Django', 'Flutter',
-  'React Native', 'UI/UX Design', 'Figma', 'Machine Learning',
-  'Data Science', 'DevOps', 'AWS', 'Firebase', 'MongoDB',
-  'PostgreSQL', 'Java', 'C++', 'Marketing', 'Sales', 'No-code'
-]
-
-const LOOKING_FOR_OPTIONS = [
-  'Co-founder', 'Technical Partner', 'Designer', 'Marketing Partner',
-  'Accountability Partner', 'Just exploring', 'Mentor'
-]
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createBrowserClient } from '@supabase/ssr';
+import toast from 'react-hot-toast';
 
 export default function EditProfilePage() {
-  const router = useRouter()
+  const router = useRouter();
+  const [supabase] = useState(() =>
+    createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    )
+  );
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  )
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
-  // ── State ──
-  const [userId, setUserId]       = useState(null)
-  const [college, setCollege]     = useState('')
-  const [branch, setBranch]       = useState('')
-  const [year, setYear]           = useState('')
-  const [bio, setBio]             = useState('')
-  const [skills, setSkills]       = useState([])
-  const [lookingFor, setLookingFor] = useState('')
-  const [loading, setLoading]     = useState(true)  // loading current data
-  const [saving, setSaving]       = useState(false)  // saving changes
-  const [error, setError]         = useState('')
+  // Form fields
+  const [name, setName] = useState('');
+  const [college, setCollege] = useState('');
+  const [branch, setBranch] = useState('');
+  const [year, setYear] = useState('');
+  const [bio, setBio] = useState('');
+  const [skills, setSkills] = useState([]);
+  const [skillInput, setSkillInput] = useState('');
+  const [lookingFor, setLookingFor] = useState('');
 
-  // ── Load current profile data on mount ──
   useEffect(() => {
     async function loadProfile() {
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) { router.push('/login'); return }
-
-        setUserId(user.id)
-
-        // Fetch current profile data to pre-fill the form
-        const res = await fetch(`/api/users/${user.id}`)
-        const json = await res.json()
-
-        if (!res.ok) {
-          setError('Failed to load profile.')
-          setLoading(false)
-          return
-        }
-
-        const p = json.data
-        setCollege(p.college || '')
-        setBranch(p.branch || '')
-        setYear(p.year ? String(p.year) : '')
-        setBio(p.bio || '')
-        setSkills(Array.isArray(p.skills) ? p.skills : [])
-        // looking_for is stored as array — take first item for single select
-        setLookingFor(
-          Array.isArray(p.looking_for) && p.looking_for.length > 0
-            ? p.looking_for[0]
-            : ''
-        )
-        setLoading(false)
-
-      } catch (err) {
-        setError('Something went wrong.')
-        setLoading(false)
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push('/login');
+        return;
       }
+
+      const { data: userData } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (userData) {
+        setCurrentUser(userData);
+        setName(userData.name || '');
+        setCollege(userData.college || '');
+        setBranch(userData.branch || '');
+        setYear(userData.year || '');
+        setBio(userData.bio || '');
+        setSkills(userData.skills || []);
+        setLookingFor(userData.looking_for?.[0] || '');
+      }
+
+      setLoading(false);
     }
-    loadProfile()
-  }, [])
 
-  function toggleSkill(skill) {
-    setSkills(prev =>
-      prev.includes(skill)
-        ? prev.filter(s => s !== skill)
-        : [...prev, skill]
-    )
-  }
+    loadProfile();
+  }, [supabase, router]);
 
-  async function handleSave() {
-    setError('')
+  const handleAddSkill = () => {
+    if (skillInput.trim() && skills.length < 5) {
+      setSkills([...skills, skillInput.trim()]);
+      setSkillInput('');
+    }
+  };
 
-    // Validation
-    if (!college.trim()) return setError('College name is required.')
-    if (!branch)         return setError('Please select your branch.')
-    if (!year)           return setError('Please select your year.')
-    if (!bio.trim())     return setError('Please write a short bio.')
-    if (skills.length === 0) return setError('Select at least one skill.')
-    if (!lookingFor)     return setError('Please select what you are looking for.')
+  const handleRemoveSkill = (index) => {
+    setSkills(skills.filter((_, i) => i !== index));
+  };
 
-    setSaving(true)
+  const handleSave = async (e) => {
+    e.preventDefault();
+
+    if (!name.trim() || !college.trim() || !branch.trim() || !year) {
+      toast.error('Please fill all required fields');
+      return;
+    }
+
+    setSubmitting(true);
+
     try {
-      const res = await fetch('/api/users/update', {
+      const response = await fetch('/api/users/update', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId,
-          college: college.trim(),
+          name,
+          college,
           branch,
-          year: parseInt(year),
-          bio: bio.trim(),
+          year,
+          bio,
           skills,
-          looking_for: [lookingFor],  // always send as array
-        }),
-      })
+          looking_for: lookingFor ? [lookingFor] : []
+        })
+      });
 
-      const json = await res.json()
-
-      if (!res.ok) {
-        setError(json.error || 'Failed to save. Try again.')
-        setSaving(false)
-        return
+      if (response.ok) {
+        toast.success('Profile updated!');
+        router.push(`/profile/${currentUser.id}`);
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to update profile');
       }
-
-      toast.success('Profile updated!')
-      // Use window.location to force a full page reload
-      // router.push serves cached data — window.location forces fresh fetch
-      window.location.href = `/profile/${userId}`
-
-    } catch (err) {
-      setError('Network error. Try again.')
-      setSaving(false)
+    } catch (error) {
+      console.error('Update error:', error);
+      toast.error('Something went wrong');
     }
-  }
 
-  // ── Loading state ──
+    setSubmitting(false);
+  };
+
   if (loading) {
     return (
-      <main style={{ backgroundColor: '#0f0f1a', minHeight: '100vh', padding: '24px 16px' }}>
-        <div style={{ maxWidth: '560px', margin: '0 auto' }}>
-          <div style={{ width: '60px', height: '14px', backgroundColor: '#1e2a4a', borderRadius: '6px', marginBottom: '32px' }} />
-          <div style={{ backgroundColor: '#16213e', borderRadius: '16px', padding: '24px', border: '1px solid #2a2a4a', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {[200, 160, 120, 240, 180].map((w, i) => (
-              <div key={i} style={{ width: `${w}px`, height: '16px', backgroundColor: '#1e2a4a', borderRadius: '6px' }} />
-            ))}
-          </div>
-        </div>
-      </main>
-    )
-  }
-
-  // ── Main render ──
-  return (
-    <main style={{ backgroundColor: '#0f0f1a', minHeight: '100vh', padding: '24px 16px' }}>
-      <div style={{ maxWidth: '560px', margin: '0 auto' }}>
-
-        {/* Back button */}
-        <button
-          onClick={() => router.back()}
-          style={{
-            background: 'transparent', border: 'none',
-            color: '#94a3b8', fontSize: '14px',
-            cursor: 'pointer', marginBottom: '24px',
-            padding: 0, letterSpacing: '0.05em',
-          }}
-        >
-          ← Back
-        </button>
-
-        <h1 style={{
-          fontSize: '22px', fontWeight: 500,
-          color: '#f8fafc', marginBottom: '24px',
-          letterSpacing: '0.08em',
-        }}>
-          Edit Profile
-        </h1>
-
-        {/* ── Form card ── */}
+      <div style={{
+        minHeight: '100vh',
+        background: '#111111',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
         <div style={{
-          backgroundColor: '#16213e',
-          borderRadius: '16px',
-          padding: '24px',
-          border: '1px solid #2a2a4a',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '20px',
+          fontFamily: "'DM Sans', sans-serif",
+          fontSize: '15px',
+          color: '#9A9A8A'
         }}>
-
-          {/* College */}
-          <div>
-            <label style={labelStyle}>COLLEGE NAME</label>
-            <input
-              type="text"
-              value={college}
-              onChange={e => setCollege(e.target.value)}
-              placeholder="e.g. VIT Vellore, NIT Trichy..."
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Branch */}
-          <div>
-            <label style={labelStyle}>BRANCH</label>
-            <select
-              value={branch}
-              onChange={e => setBranch(e.target.value)}
-              style={{ ...inputStyle, color: branch ? '#f8fafc' : '#94a3b8' }}
-            >
-              <option value="">Select branch</option>
-              {BRANCHES.map(b => (
-                <option key={b} value={b} style={{ backgroundColor: '#16213e' }}>{b}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Year */}
-          <div>
-            <label style={labelStyle}>YEAR</label>
-            <select
-              value={year}
-              onChange={e => setYear(e.target.value)}
-              style={{ ...inputStyle, color: year ? '#f8fafc' : '#94a3b8' }}
-            >
-              <option value="">Select year</option>
-              {[1, 2, 3, 4].map(y => (
-                <option key={y} value={y} style={{ backgroundColor: '#16213e' }}>Year {y}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Bio */}
-          <div>
-            <label style={labelStyle}>BIO <span style={{ color: '#6c63ff' }}>(max 200 chars)</span></label>
-            <textarea
-              value={bio}
-              onChange={e => setBio(e.target.value.slice(0, 200))}
-              placeholder="Tell builders who you are..."
-              rows={3}
-              style={{ ...inputStyle, resize: 'none' }}
-            />
-            <p style={{ fontSize: '12px', color: '#94a3b8', textAlign: 'right', marginTop: '-8px' }}>
-              {bio.length}/200
-            </p>
-          </div>
-
-          {/* Skills */}
-          <div>
-            <label style={labelStyle}>SKILLS</label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              {SKILL_OPTIONS.map(skill => {
-                const selected = skills.includes(skill)
-                return (
-                  <button
-                    key={skill}
-                    type="button"
-                    onClick={() => toggleSkill(skill)}
-                    style={{
-                      padding: '6px 14px',
-                      borderRadius: '999px',
-                      fontSize: '13px',
-                      cursor: 'pointer',
-                      backgroundColor: selected ? '#6c63ff' : 'transparent',
-                      border: `1px solid ${selected ? '#6c63ff' : 'rgba(255,255,255,0.15)'}`,
-                      color: selected ? '#fff' : '#94a3b8',
-                      transition: 'all 0.15s',
-                    }}
-                  >
-                    {skill}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Looking for */}
-          <div>
-            <label style={labelStyle}>LOOKING FOR</label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {LOOKING_FOR_OPTIONS.map(option => {
-                const selected = lookingFor === option
-                return (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => setLookingFor(option)}
-                    style={{
-                      padding: '10px 16px',
-                      borderRadius: '8px',
-                      fontSize: '14px',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      backgroundColor: selected ? '#6c63ff22' : 'transparent',
-                      border: `1px solid ${selected ? '#6c63ff' : 'rgba(255,255,255,0.1)'}`,
-                      color: selected ? '#a78bfa' : '#94a3b8',
-                      transition: 'all 0.15s',
-                    }}
-                  >
-                    {option}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Error */}
-          {error && (
-            <div style={{
-              backgroundColor: '#ff4d4d11',
-              border: '1px solid #ff4d4d44',
-              borderRadius: '8px',
-              padding: '12px 16px',
-              color: '#ff4d4d',
-              fontSize: '14px',
-            }}>
-              {error}
-            </div>
-          )}
-
-          {/* Save button */}
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            style={{
-              backgroundColor: saving ? '#4a4580' : '#6c63ff',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '14px',
-              color: '#fff',
-              fontSize: '15px',
-              fontWeight: 500,
-              cursor: saving ? 'not-allowed' : 'pointer',
-              letterSpacing: '0.08em',
-              transition: 'background-color 0.2s',
-            }}
-          >
-            {saving ? 'Saving...' : 'Save Changes'}
-          </button>
-
+          Loading...
         </div>
       </div>
-    </main>
-  )
-}
+    );
+  }
 
-// ── Shared styles ──
-const labelStyle = {
-  display: 'block',
-  fontSize: '12px',
-  color: '#94a3b8',
-  letterSpacing: '0.08em',
-  marginBottom: '8px',
-  fontWeight: 500,
-}
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: '#111111',
+      paddingTop: '0',
+      paddingLeft: '0',
+      paddingRight: '0',
+      paddingBottom: '80px'
+    }}>
+      <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px' }}>
+        
+        {/* Header */}
+        <div style={{ marginBottom: '24px' }}>
+          <div style={{
+            width: '28px',
+            height: '3px',
+            background: '#F97316',
+            borderRadius: '2px',
+            marginBottom: '16px'
+          }}></div>
 
-const inputStyle = {
-  width: '100%',
-  backgroundColor: '#0f0f1a',
-  border: '1px solid #2a2a4a',
-  borderRadius: '8px',
-  padding: '10px 14px',
-  color: '#f8fafc',
-  fontSize: '14px',
-  outline: 'none',
-  boxSizing: 'border-box',
-  fontFamily: 'Inter, sans-serif',
+          <h1 style={{
+            fontFamily: "'DM Serif Display', serif",
+            fontSize: '40px',
+            fontWeight: '400',
+            fontStyle: 'italic',
+            color: '#F5F0E8',
+            marginBottom: '8px'
+          }}>
+            Edit Profile
+          </h1>
+
+          <p style={{
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: '15px',
+            color: '#9A9A8A'
+          }}>
+            Update your information
+          </p>
+        </div>
+
+        {/* Form Card */}
+        <div style={{
+          background: '#161616',
+          border: '1px solid #1E1E1E',
+          borderRadius: '12px',
+          padding: '32px'
+        }}>
+          <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            
+            {/* Basic Info Section */}
+            <div>
+              <div style={{
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: '12px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                color: '#F97316',
+                fontWeight: '500',
+                marginBottom: '16px'
+              }}>
+                Basic Information
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div>
+                  <label style={{
+                    display: 'block',
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    color: '#9A9A8A',
+                    marginBottom: '8px'
+                  }}>
+                    Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Your name"
+                    style={{
+                      width: '100%',
+                      background: '#111111',
+                      border: '1px solid #2A2A2A',
+                      borderRadius: '8px',
+                      padding: '12px',
+                      fontFamily: "'DM Sans', sans-serif",
+                      fontSize: '14px',
+                      color: '#F5F0E8'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{
+                    display: 'block',
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    color: '#9A9A8A',
+                    marginBottom: '8px'
+                  }}>
+                    College *
+                  </label>
+                  <input
+                    type="text"
+                    value={college}
+                    onChange={(e) => setCollege(e.target.value)}
+                    placeholder="e.g., IIT Delhi, NIT Trichy"
+                    style={{
+                      width: '100%',
+                      background: '#111111',
+                      border: '1px solid #2A2A2A',
+                      borderRadius: '8px',
+                      padding: '12px',
+                      fontFamily: "'DM Sans', sans-serif",
+                      fontSize: '14px',
+                      color: '#F5F0E8'
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div>
+                    <label style={{
+                      display: 'block',
+                      fontFamily: "'DM Sans', sans-serif",
+                      fontSize: '13px',
+                      fontWeight: '500',
+                      color: '#9A9A8A',
+                      marginBottom: '8px'
+                    }}>
+                      Branch *
+                    </label>
+                    <input
+                      type="text"
+                      value={branch}
+                      onChange={(e) => setBranch(e.target.value)}
+                      placeholder="e.g., CSE"
+                      style={{
+                        width: '100%',
+                        background: '#111111',
+                        border: '1px solid #2A2A2A',
+                        borderRadius: '8px',
+                        padding: '12px',
+                        fontFamily: "'DM Sans', sans-serif",
+                        fontSize: '14px',
+                        color: '#F5F0E8'
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{
+                      display: 'block',
+                      fontFamily: "'DM Sans', sans-serif",
+                      fontSize: '13px',
+                      fontWeight: '500',
+                      color: '#9A9A8A',
+                      marginBottom: '8px'
+                    }}>
+                      Year *
+                    </label>
+                    <select
+                      value={year}
+                      onChange={(e) => setYear(e.target.value)}
+                      style={{
+                        width: '100%',
+                        background: '#111111',
+                        border: '1px solid #2A2A2A',
+                        borderRadius: '8px',
+                        padding: '12px',
+                        fontFamily: "'DM Sans', sans-serif",
+                        fontSize: '14px',
+                        color: '#F5F0E8'
+                      }}
+                    >
+                      <option value="">Select</option>
+                      <option value="1">1st Year</option>
+                      <option value="2">2nd Year</option>
+                      <option value="3">3rd Year</option>
+                      <option value="4">4th Year</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div style={{ height: '1px', background: '#1E1E1E' }}></div>
+
+            {/* About Section */}
+            <div>
+              <div style={{
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: '12px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                color: '#F97316',
+                fontWeight: '500',
+                marginBottom: '16px'
+              }}>
+                About
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div>
+                  <label style={{
+                    display: 'block',
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    color: '#9A9A8A',
+                    marginBottom: '8px'
+                  }}>
+                    Bio
+                  </label>
+                  <textarea
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    placeholder="Tell others about yourself..."
+                    rows={4}
+                    style={{
+                      width: '100%',
+                      background: '#111111',
+                      border: '1px solid #2A2A2A',
+                      borderRadius: '8px',
+                      padding: '12px',
+                      fontFamily: "'DM Sans', sans-serif",
+                      fontSize: '14px',
+                      color: '#F5F0E8',
+                      resize: 'vertical'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{
+                    display: 'block',
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    color: '#9A9A8A',
+                    marginBottom: '8px'
+                  }}>
+                    Skills (Max 5)
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                    <input
+                      type="text"
+                      value={skillInput}
+                      onChange={(e) => setSkillInput(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSkill())}
+                      placeholder="e.g., React, Python, Design"
+                      disabled={skills.length >= 5}
+                      style={{
+                        flex: 1,
+                        background: '#111111',
+                        border: '1px solid #2A2A2A',
+                        borderRadius: '8px',
+                        padding: '10px 12px',
+                        fontFamily: "'DM Sans', sans-serif",
+                        fontSize: '14px',
+                        color: '#F5F0E8'
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddSkill}
+                      disabled={!skillInput.trim() || skills.length >= 5}
+                      style={{
+                        background: '#F97316',
+                        color: '#111111',
+                        border: 'none',
+                        borderRadius: '8px',
+                        padding: '10px 20px',
+                        fontFamily: "'DM Sans', sans-serif",
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        cursor: !skillInput.trim() || skills.length >= 5 ? 'not-allowed' : 'pointer',
+                        opacity: !skillInput.trim() || skills.length >= 5 ? 0.5 : 1
+                      }}
+                    >
+                      Add
+                    </button>
+                  </div>
+
+                  {skills.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {skills.map((skill, index) => (
+                        <div key={index} style={{
+                          background: '#F9731610',
+                          border: '1px solid #F9731640',
+                          color: '#F97316',
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          fontSize: '13px',
+                          fontFamily: "'DM Sans', sans-serif",
+                          fontWeight: '500',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px'
+                        }}>
+                          {skill}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSkill(index)}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: '#F97316',
+                              cursor: 'pointer',
+                              fontSize: '16px',
+                              padding: 0,
+                              lineHeight: 1
+                            }}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label style={{
+                    display: 'block',
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    color: '#9A9A8A',
+                    marginBottom: '8px'
+                  }}>
+                    Looking For
+                  </label>
+                  <select
+                    value={lookingFor}
+                    onChange={(e) => setLookingFor(e.target.value)}
+                    style={{
+                      width: '100%',
+                      background: '#111111',
+                      border: '1px solid #2A2A2A',
+                      borderRadius: '8px',
+                      padding: '12px',
+                      fontFamily: "'DM Sans', sans-serif",
+                      fontSize: '14px',
+                      color: '#F5F0E8'
+                    }}
+                  >
+                    <option value="">Select...</option>
+                    <option value="Co-founder">Co-founder</option>
+                    <option value="Collaborator">Collaborator</option>
+                    <option value="Mentor">Mentor</option>
+                    <option value="Accountability Partner">Accountability Partner</option>
+                    <option value="Just Exploring">Just Exploring</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div style={{
+              display: 'flex',
+              gap: '12px',
+              marginTop: '8px',
+              paddingTop: '24px',
+              borderTop: '1px solid #1E1E1E'
+            }}>
+              <button
+                type="button"
+                onClick={() => router.push(`/profile/${currentUser.id}`)}
+                style={{
+                  flex: 1,
+                  background: 'transparent',
+                  color: '#9A9A8A',
+                  border: '1px solid #2A2A2A',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                style={{
+                  flex: 1,
+                  background: '#F97316',
+                  color: '#111111',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: submitting ? 'not-allowed' : 'pointer',
+                  opacity: submitting ? 0.6 : 1
+                }}
+              >
+                {submitting ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
 }

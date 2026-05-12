@@ -1,151 +1,273 @@
-// PURPOSE: Login page
-// - Form: email, password
-// - Calls POST /api/auth/login
-// - Redirects to /onboarding if not done, else /feed
+'use client';
 
-'use client'
-
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createBrowserClient } from '@supabase/ssr';
+import toast from 'react-hot-toast';
+import Link from 'next/link';
 
 export default function LoginPage() {
-  const router = useRouter()
+  const router = useRouter();
+  const [supabase] = useState(() =>
+    createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    )
+  );
 
-  const [email, setEmail]       = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading]   = useState(false)
-  const [error, setError]       = useState('')
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e) {
-    e.preventDefault()
-
-    if (!email.trim() || !password.trim()) {
-      setError('Email and password are required.')
-      return
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    
+    if (!email || !password) {
+      toast.error('Please fill all fields');
+      return;
     }
 
-    setLoading(true)
-    setError('')
+    setLoading(true);
 
     try {
-      const res = await fetch('/api/auth/login', {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      })
+        body: JSON.stringify({ email, password })
+      });
 
-      const data = await res.json()
+      const result = await response.json();
 
-      if (!res.ok) {
-        setError(data.error || 'Login failed. Check your credentials.')
-        setLoading(false)
-        return
-      }
+      if (response.ok) {
+        // Also sign in on client side
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
 
-      // Redirect based on onboarding status
-      if (data.data?.onboardingDone === false) {
-        router.push('/onboarding')
+        if (signInError) {
+          toast.error(signInError.message);
+          setLoading(false);
+          return;
+        }
+
+        toast.success('Welcome back!');
+        window.location.href = '/feed';
       } else {
-        router.push('/feed')
+        toast.error(result.error || 'Login failed');
       }
-
-    } catch (err) {
-      setError('Network error. Check your connection and try again.')
-      setLoading(false)
+    } catch (error) {
+      console.error('Login error:', error);
+      toast.error('Something went wrong');
     }
-  }
+
+    setLoading(false);
+  };
 
   return (
-    <main
-      style={{ backgroundColor: '#0f0f1a', minHeight: '100vh' }}
-      className="flex items-center justify-center px-4 py-16"
-    >
-      <div className="w-full max-w-sm">
-
-        <div className="text-center mb-8">
-          <a href="/" className="text-lg font-light" style={{ color: '#a78bfa', letterSpacing: '0.08em' }}>
-            clansko
-          </a>
-          <h1 className="text-2xl font-medium mt-4 mb-2" style={{ color: '#f8fafc' }}>
-            Welcome back
-          </h1>
-          <p className="text-sm" style={{ color: '#94a3b8' }}>
-            Log in to continue building
-          </p>
+    <div style={{
+      minHeight: '100vh',
+      background: '#111111',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '24px'
+    }}>
+      <div style={{ maxWidth: '440px', width: '100%' }}>
+        
+        {/* Logo */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          marginBottom: '40px'
+        }}>
+          <div style={{
+            width: '48px',
+            height: '48px',
+            background: '#F97316',
+            borderRadius: '10px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: '24px',
+            fontWeight: '700',
+            color: '#111111'
+          }}>
+            C
+          </div>
+          <div style={{
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: '24px',
+            fontWeight: '600',
+            color: '#F5F0E8'
+          }}>
+            ClanSko
+          </div>
         </div>
 
-        <div className="p-6 rounded-2xl border border-white/10" style={{ backgroundColor: '#16213e' }}>
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        {/* Card */}
+        <div style={{
+          background: '#161616',
+          border: '1px solid #1E1E1E',
+          borderRadius: '12px',
+          padding: '40px'
+        }}>
+          
+          {/* Orange accent bar */}
+          <div style={{
+            width: '28px',
+            height: '3px',
+            background: '#F97316',
+            borderRadius: '2px',
+            marginBottom: '16px'
+          }}></div>
 
-            {/* Email */}
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium" style={{ color: '#94a3b8', letterSpacing: '0.08em' }}>
-                EMAIL
+          <h1 style={{
+            fontFamily: "'DM Serif Display', serif",
+            fontSize: '32px',
+            fontWeight: '400',
+            fontStyle: 'italic',
+            color: '#F5F0E8',
+            marginBottom: '8px'
+          }}>
+            Welcome back
+          </h1>
+
+          <p style={{
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: '15px',
+            color: '#9A9A8A',
+            marginBottom: '32px'
+          }}>
+            Sign in to continue building
+          </p>
+
+          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div>
+              <label style={{
+                display: 'block',
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: '13px',
+                fontWeight: '500',
+                color: '#9A9A8A',
+                marginBottom: '8px'
+              }}>
+                Email
               </label>
               <input
                 type="email"
-                placeholder="you@college.edu"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                disabled={loading}
-                className="w-full px-4 py-3 rounded-lg text-sm outline-none"
-                style={{ backgroundColor: '#0f0f1a', border: '1px solid rgba(255,255,255,0.1)', color: '#f8fafc' }}
-                onFocus={(e) => e.target.style.borderColor = '#6c63ff'}
-                onBlur={(e)  => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+                placeholder="you@example.com"
+                style={{
+                  width: '100%',
+                  background: '#111111',
+                  border: '1px solid #2A2A2A',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: '14px',
+                  color: '#F5F0E8'
+                }}
               />
             </div>
 
-            {/* Password */}
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium" style={{ color: '#94a3b8', letterSpacing: '0.08em' }}>
-                PASSWORD
+            <div>
+              <label style={{
+                display: 'block',
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: '13px',
+                fontWeight: '500',
+                color: '#9A9A8A',
+                marginBottom: '8px'
+              }}>
+                Password
               </label>
               <input
                 type="password"
-                placeholder="Your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-                className="w-full px-4 py-3 rounded-lg text-sm outline-none"
-                style={{ backgroundColor: '#0f0f1a', border: '1px solid rgba(255,255,255,0.1)', color: '#f8fafc' }}
-                onFocus={(e) => e.target.style.borderColor = '#6c63ff'}
-                onBlur={(e)  => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+                placeholder="••••••••"
+                style={{
+                  width: '100%',
+                  background: '#111111',
+                  border: '1px solid #2A2A2A',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: '14px',
+                  color: '#F5F0E8'
+                }}
               />
             </div>
 
-            {/* Error */}
-            {error && (
-              <div
-                className="px-4 py-3 rounded-lg text-sm"
-                style={{ backgroundColor: '#ff4d4d11', border: '1px solid #ff4d4d44', color: '#ff4d4d' }}
-              >
-                {error}
-              </div>
-            )}
-
-            {/* Submit */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 rounded-lg text-sm font-medium"
               style={{
-                backgroundColor: loading ? '#6c63ff88' : '#6c63ff',
-                color: '#fff',
+                width: '100%',
+                background: '#F97316',
+                color: '#111111',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '14px',
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: '15px',
+                fontWeight: '600',
                 cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.6 : 1,
+                marginTop: '8px'
               }}
             >
-              {loading ? 'Logging in...' : 'Log in'}
+              {loading ? 'Signing in...' : 'Sign In'}
             </button>
-
           </form>
+
+          <div style={{
+  marginTop: '24px',
+  paddingTop: '24px',
+  borderTop: '1px solid #1E1E1E',
+  textAlign: 'center'
+}}>
+  <span style={{
+    fontFamily: "'DM Sans', sans-serif",
+    fontSize: '14px',
+    color: '#9A9A8A'
+  }}>
+    Don&apos;t have an account?{' '}
+  </span>
+  <button
+    onClick={() => router.push('/signup')}
+    style={{
+      background: 'transparent',
+      border: 'none',
+      fontFamily: "'DM Sans', sans-serif",
+      fontSize: '14px',
+      fontWeight: '600',
+      color: '#F97316',
+      textDecoration: 'none',
+      cursor: 'pointer',
+      padding: 0
+    }}
+  >
+    Sign up
+  </button>
+</div>
         </div>
 
-        <p className="text-center text-sm mt-5" style={{ color: '#94a3b8' }}>
-          New to ClanSko?{' '}
-          <a href="/signup" style={{ color: '#a78bfa' }} className="hover:underline">Create account</a>
-        </p>
-
+        {/* Footer */}
+        <div style={{
+          textAlign: 'center',
+          marginTop: '24px',
+          fontFamily: "'DM Sans', sans-serif",
+          fontSize: '13px',
+          color: '#6A6A5A'
+        }}>
+          Where builders find their tribe
+        </div>
       </div>
-    </main>
-  )
+    </div>
+  );
 }

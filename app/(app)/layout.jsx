@@ -187,10 +187,10 @@ export default function AppLayout({ children }) {
             
             {/* Contextual Page Title (Optional but nice) */}
             <div className="hidden sm:flex items-center">
-              <h1 className="text-lg font-semibold capitalize">
-                {pathname.replace('/', '') || 'Dashboard'}
-              </h1>
-            </div>
+             <h1 className="text-lg font-semibold capitalize">
+             {pathname.split('/').filter(Boolean)[0] || 'Dashboard'}
+             </h1>
+           </div>
           </div>
           
           {/* User Area Right Side Topbar */}

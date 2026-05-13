@@ -56,7 +56,9 @@ export default function LoginPage() {
         }
 
         toast.success('Welcome back!');
+        setTimeout(() => {
         window.location.href = '/feed';
+        }, 500);
       } else {
         toast.error(result.error || 'Login failed');
       }

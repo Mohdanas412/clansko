@@ -76,30 +76,38 @@ export default function ChatPage() {
 
       setLoading(false)
       setTimeout(scrollToBottom, 100)
+      // Mark messages as read
+        fetch('/api/messages/read', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ connection_id: connectionId }),
+        }).catch(() => {})
 
-      channel = supabase.channel(`messages:${connectionId}`)
+      const channelName = `messages:${connectionId}`
+supabase.removeChannel(supabase.channel(channelName))
 
-      channel
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'messages',
-            filter: `connection_id=eq.${connectionId}`
-          },
-          (payload) => {
-            const newMsg = payload.new
-            if (
-              currentUserRef.current &&
-              newMsg.sender_id !== currentUserRef.current.id
-            ) {
-              setMessages(prev => [...prev, newMsg])
-              setTimeout(scrollToBottom, 100)
-            }
-          }
-        )
-        .subscribe()
+channel = supabase
+  .channel(channelName)
+  .on(
+    'postgres_changes',
+    {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'messages',
+      filter: `connection_id=eq.${connectionId}`
+    },
+    (payload) => {
+      const newMsg = payload.new
+      if (
+        currentUserRef.current &&
+        newMsg.sender_id !== currentUserRef.current.id
+      ) {
+        setMessages(prev => [...prev, newMsg])
+        setTimeout(scrollToBottom, 100)
+      }
+    }
+  )
+  .subscribe()
     }
 
     init()

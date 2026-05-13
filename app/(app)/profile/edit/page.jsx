@@ -1,9 +1,25 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import toast from 'react-hot-toast';
+import { 
+  User, 
+  GraduationCap, 
+  Terminal, 
+  Compass, 
+  Plus, 
+  X, 
+  ArrowLeft, 
+  Save, 
+  Layers,
+  Sparkles
+} from 'lucide-react';
+
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { cn } from '@/lib/utils';
 
 export default function EditProfilePage() {
   const router = useRouter();
@@ -18,7 +34,7 @@ export default function EditProfilePage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  // Form fields
+  // Core Form attributes
   const [name, setName] = useState('');
   const [college, setCollege] = useState('');
   const [branch, setBranch] = useState('');
@@ -61,7 +77,9 @@ export default function EditProfilePage() {
 
   const handleAddSkill = () => {
     if (skillInput.trim() && skills.length < 5) {
-      setSkills([...skills, skillInput.trim()]);
+      if (!skills.includes(skillInput.trim())) {
+        setSkills([...skills, skillInput.trim()]);
+      }
       setSkillInput('');
     }
   };
@@ -74,7 +92,7 @@ export default function EditProfilePage() {
     e.preventDefault();
 
     if (!name.trim() || !college.trim() || !branch.trim() || !year) {
-      toast.error('Please fill all required fields');
+      toast.error('Please fill in all required fields');
       return;
     }
 
@@ -85,26 +103,26 @@ export default function EditProfilePage() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name,
-          college,
-          branch,
+          name: name.trim(),
+          college: college.trim(),
+          branch: branch.trim(),
           year,
-          bio,
+          bio: bio.trim(),
           skills,
           looking_for: lookingFor ? [lookingFor] : []
         })
       });
 
       if (response.ok) {
-        toast.success('Profile updated!');
+        toast.success('Profile updated successfully!');
         router.push(`/profile/${currentUser.id}`);
       } else {
-        const error = await response.json();
-        toast.error(error.error || 'Failed to update profile');
+        const errorRes = await response.json();
+        toast.error(errorRes.error || 'Failed to update profile');
       }
     } catch (error) {
       console.error('Update error:', error);
-      toast.error('Something went wrong');
+      toast.error('Network error. Please try again.');
     }
 
     setSubmitting(false);
@@ -112,435 +130,266 @@ export default function EditProfilePage() {
 
   if (loading) {
     return (
-      <div style={{
-        minHeight: '100vh',
-        background: '#111111',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        <div style={{
-          fontFamily: "'DM Sans', sans-serif",
-          fontSize: '15px',
-          color: '#9A9A8A'
-        }}>
-          Loading...
-        </div>
+      <div className="w-full max-w-3xl mx-auto space-y-4 animate-in fade-in duration-300">
+        <div className="w-48 h-8 rounded-lg bg-secondary animate-pulse" />
+        <div className="w-full h-64 rounded-2xl bg-secondary animate-pulse" />
+        <div className="w-full h-64 rounded-2xl bg-secondary animate-pulse" />
       </div>
     );
   }
 
-  return (
-    <div style={{
-      minHeight: '100vh',
-      background: '#111111',
-      paddingTop: '0',
-      paddingLeft: '0',
-      paddingRight: '0',
-      paddingBottom: '80px'
-    }}>
-      <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px' }}>
-        
-        {/* Header */}
-        <div style={{ marginBottom: '24px' }}>
-          <div style={{
-            width: '28px',
-            height: '3px',
-            background: '#F97316',
-            borderRadius: '2px',
-            marginBottom: '16px'
-          }}></div>
+  const LOOKING_FOR_OPTIONS = [
+    { value: 'Co-founder', label: 'Find a Co-founder' },
+    { value: 'Collaborator', label: 'Find Project Collaborators' },
+    { value: 'Mentor', label: 'Find a Mentor' },
+    { value: 'Accountability Partner', label: 'Find an Accountability Partner' },
+    { value: 'Just Exploring', label: 'Just Exploring' }
+  ];
 
-          <h1 style={{
-            fontFamily: "'DM Serif Display', serif",
-            fontSize: '40px',
-            fontWeight: '400',
-            fontStyle: 'italic',
-            color: '#F5F0E8',
-            marginBottom: '8px'
-          }}>
+  return (
+    <div className="w-full max-w-3xl mx-auto animate-in fade-in duration-300 space-y-6">
+      
+      {/* ── HEADER CONTEXT ROW ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border/60">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-[10px] font-bold font-mono tracking-wide uppercase">
+              PROFILE
+            </span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
             Edit Profile
           </h1>
-
-          <p style={{
-            fontFamily: "'DM Sans', sans-serif",
-            fontSize: '15px',
-            color: '#9A9A8A'
-          }}>
-            Update your information
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+            Update your info, tech stack, and what you&apos;re looking for to find the right teammates.
           </p>
         </div>
 
-        {/* Form Card */}
-        <div style={{
-          background: '#161616',
-          border: '1px solid #1E1E1E',
-          borderRadius: '12px',
-          padding: '32px'
-        }}>
-          <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            
-            {/* Basic Info Section */}
-            <div>
-              <div style={{
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: '12px',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                color: '#F97316',
-                fontWeight: '500',
-                marginBottom: '16px'
-              }}>
-                Basic Information
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <div>
-                  <label style={{
-                    display: 'block',
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: '13px',
-                    fontWeight: '500',
-                    color: '#9A9A8A',
-                    marginBottom: '8px'
-                  }}>
-                    Full Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Your name"
-                    style={{
-                      width: '100%',
-                      background: '#111111',
-                      border: '1px solid #2A2A2A',
-                      borderRadius: '8px',
-                      padding: '12px',
-                      fontFamily: "'DM Sans', sans-serif",
-                      fontSize: '14px',
-                      color: '#F5F0E8'
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{
-                    display: 'block',
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: '13px',
-                    fontWeight: '500',
-                    color: '#9A9A8A',
-                    marginBottom: '8px'
-                  }}>
-                    College *
-                  </label>
-                  <input
-                    type="text"
-                    value={college}
-                    onChange={(e) => setCollege(e.target.value)}
-                    placeholder="e.g., IIT Delhi, NIT Trichy"
-                    style={{
-                      width: '100%',
-                      background: '#111111',
-                      border: '1px solid #2A2A2A',
-                      borderRadius: '8px',
-                      padding: '12px',
-                      fontFamily: "'DM Sans', sans-serif",
-                      fontSize: '14px',
-                      color: '#F5F0E8'
-                    }}
-                  />
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                  <div>
-                    <label style={{
-                      display: 'block',
-                      fontFamily: "'DM Sans', sans-serif",
-                      fontSize: '13px',
-                      fontWeight: '500',
-                      color: '#9A9A8A',
-                      marginBottom: '8px'
-                    }}>
-                      Branch *
-                    </label>
-                    <input
-                      type="text"
-                      value={branch}
-                      onChange={(e) => setBranch(e.target.value)}
-                      placeholder="e.g., CSE"
-                      style={{
-                        width: '100%',
-                        background: '#111111',
-                        border: '1px solid #2A2A2A',
-                        borderRadius: '8px',
-                        padding: '12px',
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontSize: '14px',
-                        color: '#F5F0E8'
-                      }}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{
-                      display: 'block',
-                      fontFamily: "'DM Sans', sans-serif",
-                      fontSize: '13px',
-                      fontWeight: '500',
-                      color: '#9A9A8A',
-                      marginBottom: '8px'
-                    }}>
-                      Year *
-                    </label>
-                    <select
-                      value={year}
-                      onChange={(e) => setYear(e.target.value)}
-                      style={{
-                        width: '100%',
-                        background: '#111111',
-                        border: '1px solid #2A2A2A',
-                        borderRadius: '8px',
-                        padding: '12px',
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontSize: '14px',
-                        color: '#F5F0E8'
-                      }}
-                    >
-                      <option value="">Select</option>
-                      <option value="1">1st Year</option>
-                      <option value="2">2nd Year</option>
-                      <option value="3">3rd Year</option>
-                      <option value="4">4th Year</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Divider */}
-            <div style={{ height: '1px', background: '#1E1E1E' }}></div>
-
-            {/* About Section */}
-            <div>
-              <div style={{
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: '12px',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                color: '#F97316',
-                fontWeight: '500',
-                marginBottom: '16px'
-              }}>
-                About
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <div>
-                  <label style={{
-                    display: 'block',
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: '13px',
-                    fontWeight: '500',
-                    color: '#9A9A8A',
-                    marginBottom: '8px'
-                  }}>
-                    Bio
-                  </label>
-                  <textarea
-                    value={bio}
-                    onChange={(e) => setBio(e.target.value)}
-                    placeholder="Tell others about yourself..."
-                    rows={4}
-                    style={{
-                      width: '100%',
-                      background: '#111111',
-                      border: '1px solid #2A2A2A',
-                      borderRadius: '8px',
-                      padding: '12px',
-                      fontFamily: "'DM Sans', sans-serif",
-                      fontSize: '14px',
-                      color: '#F5F0E8',
-                      resize: 'vertical'
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{
-                    display: 'block',
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: '13px',
-                    fontWeight: '500',
-                    color: '#9A9A8A',
-                    marginBottom: '8px'
-                  }}>
-                    Skills (Max 5)
-                  </label>
-                  <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                    <input
-                      type="text"
-                      value={skillInput}
-                      onChange={(e) => setSkillInput(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSkill())}
-                      placeholder="e.g., React, Python, Design"
-                      disabled={skills.length >= 5}
-                      style={{
-                        flex: 1,
-                        background: '#111111',
-                        border: '1px solid #2A2A2A',
-                        borderRadius: '8px',
-                        padding: '10px 12px',
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontSize: '14px',
-                        color: '#F5F0E8'
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddSkill}
-                      disabled={!skillInput.trim() || skills.length >= 5}
-                      style={{
-                        background: '#F97316',
-                        color: '#111111',
-                        border: 'none',
-                        borderRadius: '8px',
-                        padding: '10px 20px',
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontSize: '14px',
-                        fontWeight: '600',
-                        cursor: !skillInput.trim() || skills.length >= 5 ? 'not-allowed' : 'pointer',
-                        opacity: !skillInput.trim() || skills.length >= 5 ? 0.5 : 1
-                      }}
-                    >
-                      Add
-                    </button>
-                  </div>
-
-                  {skills.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                      {skills.map((skill, index) => (
-                        <div key={index} style={{
-                          background: '#F9731610',
-                          border: '1px solid #F9731640',
-                          color: '#F97316',
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          fontSize: '13px',
-                          fontFamily: "'DM Sans', sans-serif",
-                          fontWeight: '500',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px'
-                        }}>
-                          {skill}
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveSkill(index)}
-                            style={{
-                              background: 'transparent',
-                              border: 'none',
-                              color: '#F97316',
-                              cursor: 'pointer',
-                              fontSize: '16px',
-                              padding: 0,
-                              lineHeight: 1
-                            }}
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label style={{
-                    display: 'block',
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: '13px',
-                    fontWeight: '500',
-                    color: '#9A9A8A',
-                    marginBottom: '8px'
-                  }}>
-                    Looking For
-                  </label>
-                  <select
-                    value={lookingFor}
-                    onChange={(e) => setLookingFor(e.target.value)}
-                    style={{
-                      width: '100%',
-                      background: '#111111',
-                      border: '1px solid #2A2A2A',
-                      borderRadius: '8px',
-                      padding: '12px',
-                      fontFamily: "'DM Sans', sans-serif",
-                      fontSize: '14px',
-                      color: '#F5F0E8'
-                    }}
-                  >
-                    <option value="">Select...</option>
-                    <option value="Co-founder">Co-founder</option>
-                    <option value="Collaborator">Collaborator</option>
-                    <option value="Mentor">Mentor</option>
-                    <option value="Accountability Partner">Accountability Partner</option>
-                    <option value="Just Exploring">Just Exploring</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div style={{
-              display: 'flex',
-              gap: '12px',
-              marginTop: '8px',
-              paddingTop: '24px',
-              borderTop: '1px solid #1E1E1E'
-            }}>
-              <button
-                type="button"
-                onClick={() => router.push(`/profile/${currentUser.id}`)}
-                style={{
-                  flex: 1,
-                  background: 'transparent',
-                  color: '#9A9A8A',
-                  border: '1px solid #2A2A2A',
-                  borderRadius: '8px',
-                  padding: '12px',
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={submitting}
-                style={{
-                  flex: 1,
-                  background: '#F97316',
-                  color: '#111111',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '12px',
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  cursor: submitting ? 'not-allowed' : 'pointer',
-                  opacity: submitting ? 0.6 : 1
-                }}
-              >
-                {submitting ? 'Saving...' : 'Save Changes'}
-              </button>
-            </div>
-          </form>
-        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => router.push(`/profile/${currentUser?.id}`)}
+          className="rounded-xl text-xs h-9 self-start sm:self-auto shrink-0 shadow-xs"
+        >
+          <ArrowLeft size={13} className="mr-1.5" />
+          <span>Back to Profile</span>
+        </Button>
       </div>
+
+      {/* ── MODULAR FORM CANVAS ── */}
+      <form onSubmit={handleSave} className="space-y-6 pt-2">
+        
+        {/* MODULE 1: Primary Identification Card */}
+        <Card className="p-6 rounded-2xl border-border bg-card space-y-4 shadow-xs">
+          <div className="flex items-center gap-2 pb-3 border-b border-border/40">
+            <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+              <User size={13} />
+            </div>
+            <span className="text-xs font-bold text-foreground tracking-wide uppercase font-mono">
+              Basic Info
+            </span>
+          </div>
+
+          <div className="space-y-4 pt-1">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-foreground tracking-wide">
+                Your Name *
+              </label>
+              <input
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Your full legal or creator name"
+                className="w-full h-11 px-3.5 rounded-xl bg-background border border-border text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary transition-all font-sans"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-foreground tracking-wide">
+                College / University *
+              </label>
+              <input
+                type="text"
+                required
+                value={college}
+                onChange={(e) => setCollege(e.target.value)}
+                placeholder="e.g. Stanford, IIT Delhi"
+                className="w-full h-11 px-3.5 rounded-xl bg-background border border-border text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary transition-all font-sans"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-foreground tracking-wide">
+                  Branch / Major *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={branch}
+                  onChange={(e) => setBranch(e.target.value)}
+                  placeholder="e.g. CSE, AI, Electronics"
+                  className="w-full h-11 px-3.5 rounded-xl bg-background border border-border text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary transition-all font-sans"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-foreground tracking-wide">
+                  Year of Study *
+                </label>
+                <select
+                  required
+                  value={year}
+                  onChange={(e) => setYear(e.target.value)}
+                  className="w-full h-11 px-3.5 rounded-xl bg-background border border-border text-xs text-foreground outline-none focus:border-primary transition-all font-sans"
+                >
+                  <option value="" disabled>Select your year</option>
+                  <option value="1">1st Year / Freshman</option>
+                  <option value="2">2nd Year / Sophomore</option>
+                  <option value="3">3rd Year / Junior</option>
+                  <option value="4">4th Year / Senior</option>
+                  <option value="5">Graduate / Post-Grad</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        {/* MODULE 2: Technical capabilities & stack configuration Card */}
+        <Card className="p-6 rounded-2xl border-border bg-card space-y-4 shadow-xs">
+          <div className="flex items-center gap-2 pb-3 border-b border-border/40">
+            <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+              <Terminal size={13} />
+            </div>
+            <span className="text-xs font-bold text-foreground tracking-wide uppercase font-mono">
+              Bio & Tech Stack
+            </span>
+          </div>
+
+          <div className="space-y-4 pt-1">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-foreground tracking-wide">
+                Bio
+              </label>
+              <textarea
+                rows={4}
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                placeholder="Tell us a bit about yourself, what you love building, and your current interests..."
+                className="w-full p-3.5 rounded-xl bg-background border border-border text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary transition-all font-sans resize-none"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-foreground tracking-wide">
+                  Tech Stack
+                </label>
+                <span className="text-[10px] text-muted-foreground font-mono">
+                  {skills.length}/5 skills max
+                </span>
+              </div>
+
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={skillInput}
+                  onChange={(e) => setSkillInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddSkill();
+                    }
+                  }}
+                  placeholder="e.g. Node.js, WebSockets, GSAP"
+                  disabled={skills.length >= 5}
+                  className="w-full h-11 px-3.5 rounded-xl bg-background border border-border text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary transition-all font-sans"
+                />
+                <Button
+                  type="button"
+                  onClick={handleAddSkill}
+                  disabled={!skillInput.trim() || skills.length >= 5}
+                  variant="secondary"
+                  className="h-11 px-4 rounded-xl text-xs font-bold shrink-0"
+                >
+                  <Plus size={14} />
+                </Button>
+              </div>
+
+              {skills.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-2">
+                  {skills.map((skill, idx) => (
+                    <span key={idx} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary/5 text-primary border border-primary/20 text-xs font-medium font-sans">
+                      <span>{skill}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSkill(idx)}
+                        className="text-primary hover:text-primary/70 outline-none"
+                      >
+                        <X size={11} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </Card>
+
+        {/* MODULE 3: Ecosystem Intent mapping parameters */}
+        <Card className="p-6 rounded-2xl border-border bg-card space-y-4 shadow-xs">
+          <div className="flex items-center gap-2 pb-3 border-b border-border/40">
+            <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+              <Compass size={13} />
+            </div>
+            <span className="text-xs font-bold text-foreground tracking-wide uppercase font-mono">
+              Looking For
+            </span>
+          </div>
+
+          <div className="space-y-1.5 pt-1">
+            <label className="block text-xs font-bold text-foreground tracking-wide">
+              What are you primarily looking for on ClanSko?
+            </label>
+            <select
+              value={lookingFor}
+              onChange={(e) => setLookingFor(e.target.value)}
+              className="w-full h-11 px-3.5 rounded-xl bg-background border border-border text-xs text-foreground outline-none focus:border-primary transition-all font-sans"
+            >
+              <option value="">Select what you&apos;re looking for</option>
+              {LOOKING_FOR_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </Card>
+
+        {/* Sticky-feeling submission action wrapper */}
+        <div className="flex items-center justify-end gap-3 pt-4 border-t border-border/60">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => router.push(`/profile/${currentUser?.id}`)}
+            disabled={submitting}
+            className="rounded-xl text-xs h-10 px-4"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            disabled={submitting}
+            className="rounded-xl text-xs h-10 px-5 font-bold shadow-xs hover:shadow-sm"
+          >
+            <Save size={13} className="mr-1.5" />
+            <span>{submitting ? 'Saving...' : 'Save Profile'}</span>
+          </Button>
+        </div>
+
+      </form>
+
     </div>
   );
 }

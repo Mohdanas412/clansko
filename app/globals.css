@@ -1,128 +1,127 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Serif+Display:ital@0;1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+@layer base {
+  :root {
+    --background: 0 0% 98%;
+    --foreground: 240 10% 3.9%;
+    
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    
+    --primary: 24.6 95% 53.1%; /* Brand Orange #F97316 */
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    
+    --accent: 24.6 95% 53.1%;
+    --accent-foreground: 0 0% 100%;
+    
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
 
-body {
-  font-family: 'DM Sans', system-ui, sans-serif;
-  background: #111111;
-  color: #F5F0E8;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 24.6 95% 53.1%;
+    
+    --radius: 0.75rem;
+    --font-sans: 'Inter', 'DM Sans', sans-serif;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    
+    --primary: 24.6 95% 53.1%;
+    --primary-foreground: 240 5.9% 10%;
+    
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 24.6 95% 53.1%;
+  }
 }
 
-input::placeholder,
-textarea::placeholder { color: #4a5568; }
-
-input, textarea { color-scheme: dark; }
-
-/* ── Landing page styles ── */
-.nav-link {
-  color: #9A9A8A;
-  text-decoration: none;
-  font-size: 14px;
-  letter-spacing: 0.04em;
-  transition: color 0.2s;
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
 }
-.nav-link:hover { color: #F5F0E8; }
 
+/* ── Scrollbar Styling ── */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/20 rounded-full hover:bg-muted-foreground/30 transition-colors;
+}
+
+/* ── Smooth transitions ── */
+.smooth-transition {
+  @apply transition-all duration-200 ease-in-out;
+}
+
+/* ── Keep existing utilities used in the project ── */
 .btn-primary {
-  background: #F97316;
-  color: #111111;
-  border: none;
-  border-radius: 6px;
-  padding: 12px 28px;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  letter-spacing: 0.02em;
-  transition: all 0.2s;
-  text-decoration: none;
-  display: inline-block;
-  font-family: 'DM Sans', sans-serif;
-}
-.btn-primary:hover {
-  background: #EA6C0A;
-  transform: translateY(-1px);
-  box-shadow: 0 8px 24px rgba(249,115,22,0.3);
+  @apply bg-primary text-white border-none rounded-md px-7 py-3 text-[15px] font-semibold cursor-pointer tracking-wide transition-all duration-200 no-underline inline-block font-sans shadow-sm shadow-orange-500/20 hover:bg-[#EA6C0A] hover:-translate-y-0.5 hover:shadow-orange-500/30;
 }
 
 .btn-ghost {
-  background: transparent;
-  color: #F5F0E8;
-  border: 1px solid #2A2A2A;
-  border-radius: 6px;
-  padding: 11px 24px;
-  font-size: 14px;
-  font-weight: 400;
-  cursor: pointer;
-  letter-spacing: 0.02em;
-  transition: all 0.2s;
-  text-decoration: none;
-  display: inline-block;
-  font-family: 'DM Sans', sans-serif;
-}
-.btn-ghost:hover { border-color: #444; }
-
-.problem-card {
-  padding: 28px;
-  border-radius: 12px;
-  border: 1px solid #1E1E1E;
-  background: #161616;
-  transition: border-color 0.2s, transform 0.2s;
-}
-.problem-card:hover {
-  border-color: #2A2A2A;
-  transform: translateY(-2px);
-}
-
-.feature-card {
-  padding: 32px;
-  border-radius: 12px;
-  border: 1px solid #1E1E1E;
-  background: #161616;
-  transition: all 0.2s;
-}
-.feature-card:hover {
-  border-color: #F97316;
-  box-shadow: 0 0 0 1px #F9731620;
+  @apply bg-transparent text-foreground border border-border rounded-md px-6 py-2.5 text-sm font-normal cursor-pointer tracking-wide transition-all duration-200 no-underline inline-block font-sans hover:border-muted-foreground/40 hover:bg-muted/50;
 }
 
 .tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: #F9731612;
-  border: 1px solid #F9731630;
-  color: #F97316;
-  border-radius: 4px;
-  padding: 5px 12px;
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  @apply inline-flex items-center gap-1.5 bg-primary/10 border border-primary/30 text-primary rounded-md px-3 py-1 text-xs font-medium tracking-widest uppercase;
 }
 
 .stat-number {
-  font-family: 'DM Serif Display', serif;
-  font-size: 36px;
-  color: #F97316;
-  line-height: 1;
+  @apply font-display text-4xl text-primary leading-none;
 }
 
 .divider {
-  width: 40px;
-  height: 3px;
-  background: #F97316;
-  border-radius: 2px;
+  @apply w-10 h-0.5 bg-primary rounded-full;
 }
 
-@media (max-width: 768px) {
-  .hero-grid { grid-template-columns: 1fr !important; }
-  .features-grid { grid-template-columns: 1fr !important; }
-  .problems-grid { grid-template-columns: 1fr !important; }
-  .stats-grid { grid-template-columns: 1fr 1fr !important; }
-  .hero-title { font-size: 42px !important; }
-  .cta-title { font-size: 36px !important; }
+.problem-card {
+  @apply p-7 rounded-xl border border-border bg-card transition-all duration-200 hover:border-muted-foreground/30 hover:-translate-y-0.5;
+}
+
+.feature-card {
+  @apply p-8 rounded-xl border border-border bg-card transition-all duration-200 hover:border-primary/50 hover:shadow-sm;
 }

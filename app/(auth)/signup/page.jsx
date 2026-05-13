@@ -1,10 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
+import { Sparkles, ArrowRight, CheckCircle2, Zap, ShieldCheck } from 'lucide-react';
+
+import { Button } from '@/components/ui/Button';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -15,6 +18,7 @@ export default function SignupPage() {
     )
   );
 
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -23,8 +27,8 @@ export default function SignupPage() {
   const handleSignup = async (e) => {
     e.preventDefault();
 
-    if (!email || !password || !confirmPassword) {
-      toast.error('Please fill all fields');
+    if (!name.trim() || !email || !password || !confirmPassword) {
+      toast.error('Please fill in all fields');
       return;
     }
 
@@ -44,13 +48,13 @@ export default function SignupPage() {
       const response = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ name: name.trim(), email, password })
       });
 
       const result = await response.json();
 
       if (response.ok) {
-        // Also sign in on client side
+        // Authenticate client-side to enforce local storage bindings exactly
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password
@@ -62,252 +66,209 @@ export default function SignupPage() {
           return;
         }
 
-        toast.success('Account created!');
+        toast.success('Account created successfully!');
         window.location.href = '/onboarding';
       } else {
-        toast.error(result.error || 'Signup failed');
+        toast.error(result.error || 'Sign up failed');
       }
     } catch (error) {
       console.error('Signup error:', error);
-      toast.error('Something went wrong');
+      toast.error('Network error. Please try again.');
     }
 
     setLoading(false);
   };
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: '#111111',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '24px'
-    }}>
-      <div style={{ maxWidth: '440px', width: '100%' }}>
+    <div className="min-h-screen w-full flex bg-background font-sans overflow-hidden">
+      
+      {/* ── EDITORIAL SPLIT-SCREEN PRESENTATION PANEL (Left) ── */}
+      <div className="hidden lg:flex lg:w-5/12 bg-secondary/20 border-r border-border relative flex-col justify-between p-12 overflow-hidden">
+        {/* Soft background ambient gradient meshes */}
+        <div className="absolute bottom-[-10%] left-[-10%] w-[450px] h-[450px] rounded-full bg-primary/5 blur-[120px] pointer-events-none" />
+        <div className="absolute top-[10%] right-[-10%] w-[350px] h-[350px] rounded-full bg-amber-500/5 blur-[100px] pointer-events-none" />
         
-        {/* Logo */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          marginBottom: '40px'
-        }}>
-          <div style={{
-            width: '48px',
-            height: '48px',
-            background: '#F97316',
-            borderRadius: '10px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontFamily: "'DM Sans', sans-serif",
-            fontSize: '24px',
-            fontWeight: '700',
-            color: '#111111'
-          }}>
-            C
+        {/* Top Brand Identity block */}
+        <div className="relative z-10 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-md shadow-primary/20">
+            <span className="font-extrabold text-white text-base tracking-wider">C</span>
           </div>
-          <div style={{
-            fontFamily: "'DM Sans', sans-serif",
-            fontSize: '24px',
-            fontWeight: '600',
-            color: '#F5F0E8'
-          }}>
-            ClanSko
+          <span className="font-extrabold text-xl tracking-tight text-foreground">ClanSko</span>
+          <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-[10px] font-bold font-mono tracking-wide uppercase">
+            Join the Network
+          </span>
+        </div>
+
+        {/* Emotional Engagement Graphic Context block */}
+        <div className="relative z-10 space-y-6 my-auto max-w-md">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-background border border-border/60 shadow-xs">
+            <Zap size={13} className="text-primary" />
+            <span className="text-[11px] font-bold text-foreground uppercase tracking-wider font-mono">
+              Built for Consistency
+            </span>
+          </div>
+
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight leading-[1.15]">
+            Build your profile. Find your crew.
+          </h2>
+
+          <p className="text-sm text-muted-foreground leading-relaxed font-normal">
+            ClanSko is built for Indian students who want to build and launch stuff. Sign up to share your projects, track your weekly goals, and connect with other builders.
+          </p>
+
+          {/* Value verification sequence */}
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center gap-3">
+              <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                <CheckCircle2 size={12} />
+              </div>
+              <span className="text-xs font-bold text-foreground">Verified Indian student profiles</span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                <CheckCircle2 size={12} />
+              </div>
+              <span className="text-xs font-bold text-foreground">Honest feedback from students building real projects</span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                <CheckCircle2 size={12} />
+              </div>
+              <span className="text-xs font-bold text-foreground">No filler, just ambitious students pushing each other</span>
+            </div>
           </div>
         </div>
 
-        {/* Card */}
-        <div style={{
-          background: '#161616',
-          border: '1px solid #1E1E1E',
-          borderRadius: '12px',
-          padding: '40px'
-        }}>
-          
-          {/* Orange accent bar */}
-          <div style={{
-            width: '28px',
-            height: '3px',
-            background: '#F97316',
-            borderRadius: '2px',
-            marginBottom: '16px'
-          }}></div>
-
-          <h1 style={{
-            fontFamily: "'DM Serif Display', serif",
-            fontSize: '32px',
-            fontWeight: '400',
-            fontStyle: 'italic',
-            color: '#F5F0E8',
-            marginBottom: '8px'
-          }}>
-            Join ClanSko
-          </h1>
-
-          <p style={{
-            fontFamily: "'DM Sans', sans-serif",
-            fontSize: '15px',
-            color: '#9A9A8A',
-            marginBottom: '32px'
-          }}>
-            Find your tribe of serious builders
+        {/* Bottom review / credentials highlight */}
+        <div className="relative z-10 pt-6 border-t border-border/40 flex items-center gap-3">
+          <ShieldCheck size={20} className="text-muted-foreground shrink-0" />
+          <p className="text-xs text-muted-foreground font-medium">
+            Your privacy matters. We keep your contact details safe until you choose to connect.
           </p>
+        </div>
+      </div>
 
-          <form onSubmit={handleSignup} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div>
-              <label style={{
-                display: 'block',
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: '13px',
-                fontWeight: '500',
-                color: '#9A9A8A',
-                marginBottom: '8px'
-              }}>
-                Email
+      {/* ── INTERACTIVE FORM LAYOUT CANVAS (Right) ── */}
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-12 relative overflow-y-auto custom-scrollbar">
+        
+        {/* Subtle decorative top right radial gradient for light balance */}
+        <div className="absolute top-0 right-0 w-[400px] h-[400px] rounded-full bg-primary/5 blur-[120px] pointer-events-none" />
+
+        <div className="w-full max-w-md space-y-8 relative z-10 animate-in fade-in duration-300 my-auto py-6">
+          
+          {/* Mobile top navigation helper */}
+          <div className="flex lg:hidden items-center gap-2 pb-2">
+            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-sm shadow-primary/20">
+              <span className="font-extrabold text-white text-xs">C</span>
+            </div>
+            <span className="font-extrabold text-lg tracking-tight text-foreground">ClanSko</span>
+          </div>
+
+          {/* Form Header Context */}
+          <div className="space-y-2 text-left">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">
+              Create your account
+            </h1>
+            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+              Join thousands of Indian students building cool stuff.
+            </p>
+          </div>
+
+          {/* Main Credentials Input Form Wrapper */}
+          <form onSubmit={handleSignup} className="space-y-4 pt-2">
+            
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-foreground tracking-wide">
+                Your Name *
+              </label>
+              <input
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Aman Gupta"
+                className="w-full h-11 px-3.5 rounded-xl bg-background border border-border text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all font-sans"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-foreground tracking-wide">
+                Email address *
               </label>
               <input
                 type="email"
+                required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                style={{
-                  width: '100%',
-                  background: '#111111',
-                  border: '1px solid #2A2A2A',
-                  borderRadius: '8px',
-                  padding: '12px',
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: '14px',
-                  color: '#F5F0E8'
-                }}
+                placeholder="you@college.edu"
+                className="w-full h-11 px-3.5 rounded-xl bg-background border border-border text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all font-sans"
               />
             </div>
 
-            <div>
-              <label style={{
-                display: 'block',
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: '13px',
-                fontWeight: '500',
-                color: '#9A9A8A',
-                marginBottom: '8px'
-              }}>
-                Password
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-foreground tracking-wide">
+                Create Password *
               </label>
               <input
                 type="password"
+                required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="At least 6 characters"
-                style={{
-                  width: '100%',
-                  background: '#111111',
-                  border: '1px solid #2A2A2A',
-                  borderRadius: '8px',
-                  padding: '12px',
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: '14px',
-                  color: '#F5F0E8'
-                }}
+                className="w-full h-11 px-3.5 rounded-xl bg-background border border-border text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all font-sans"
               />
             </div>
 
-            <div>
-              <label style={{
-                display: 'block',
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: '13px',
-                fontWeight: '500',
-                color: '#9A9A8A',
-                marginBottom: '8px'
-              }}>
-                Confirm Password
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-foreground tracking-wide">
+                Confirm Password *
               </label>
               <input
                 type="password"
+                required
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Re-enter password"
-                style={{
-                  width: '100%',
-                  background: '#111111',
-                  border: '1px solid #2A2A2A',
-                  borderRadius: '8px',
-                  padding: '12px',
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: '14px',
-                  color: '#F5F0E8'
-                }}
+                className="w-full h-11 px-3.5 rounded-xl bg-background border border-border text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all font-sans"
               />
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                width: '100%',
-                background: '#F97316',
-                color: '#111111',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '14px',
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: '15px',
-                fontWeight: '600',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.6 : 1,
-                marginTop: '8px'
-              }}
-            >
-              {loading ? 'Creating account...' : 'Create Account'}
-            </button>
+            <div className="pt-2">
+              <Button
+                type="submit"
+                disabled={loading}
+                size="lg"
+                className="w-full rounded-xl h-11 text-xs sm:text-sm font-bold shadow-xs hover:shadow-sm"
+              >
+                <span>{loading ? 'Creating account...' : 'Sign Up Free'}</span>
+                {!loading && <ArrowRight size={15} className="ml-1.5" />}
+              </Button>
+            </div>
+
           </form>
 
-          <div style={{
-  marginTop: '24px',
-  paddingTop: '24px',
-  borderTop: '1px solid #1E1E1E',
-  textAlign: 'center'
-}}>
-  <span style={{
-    fontFamily: "'DM Sans', sans-serif",
-    fontSize: '14px',
-    color: '#9A9A8A'
-  }}>
-    Already have an account?{' '}
-  </span>
-  <button
-    onClick={() => router.push('/login')}
-    style={{
-      background: 'transparent',
-      border: 'none',
-      fontFamily: "'DM Sans', sans-serif",
-      fontSize: '14px',
-      fontWeight: '600',
-      color: '#F97316',
-      textDecoration: 'none',
-      cursor: 'pointer',
-      padding: 0
-    }}
-  >
-    Sign in
-  </button>
-</div>
+          {/* Footer Router Callout */}
+          <div className="pt-6 border-t border-border/60 text-center">
+            <p className="text-xs text-muted-foreground font-medium">
+              Already have an account?{' '}
+              <Link href="/login" className="text-primary font-bold hover:underline inline-flex items-center gap-0.5">
+                <span>Log in</span>
+                <ArrowRight size={11} className="ml-0.5 inline" />
+              </Link>
+            </p>
+          </div>
+
+          {/* Core mission footer disclaimer */}
+          <p className="text-[11px] text-muted-foreground/70 text-center font-mono pt-4 block">
+            By signing up, you agree to build cool stuff and respect the community.
+          </p>
+
         </div>
 
-        {/* Footer */}
-        <div style={{
-          textAlign: 'center',
-          marginTop: '24px',
-          fontFamily: "'DM Sans', sans-serif",
-          fontSize: '13px',
-          color: '#6A6A5A'
-        }}>
-          Where builders find their tribe
-        </div>
       </div>
+
     </div>
   );
 }

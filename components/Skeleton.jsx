@@ -1,35 +1,38 @@
-// app/components/Skeleton.jsx
+// components/Skeleton.jsx
 // Reusable skeleton loading components
-// Used on Feed, Explore, Messages instead of plain "Loading..." text
+// Modernized: Hybrid Premium Community SaaS theme adaptive shimmer support
 
 'use client'
 
-// ── Base shimmer animation ──
-// This is the pulsing grey block that simulates content loading
-function SkeletonBlock({ width = '100%', height = '16px', borderRadius = '6px', style = {} }) {
+import React from 'react'
+import { cn } from '@/lib/utils'
+
+// ── Base shimmer animation block ──
+function SkeletonBlock({ className, width, height, borderRadius = '0.5rem', style = {} }) {
   return (
     <div
+      className={cn(
+        "bg-secondary/60 relative overflow-hidden",
+        className
+      )}
       style={{
         width,
         height,
         borderRadius,
-        backgroundColor: '#1e2a4a',
-        backgroundImage: 'linear-gradient(90deg, #1e2a4a 0%, #2a3a5a 50%, #1e2a4a 100%)',
-        backgroundSize: '200% 100%',
-        animation: 'shimmer 1.5s infinite',
         ...style,
       }}
-    />
+    >
+      <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-background/60 to-transparent" />
+    </div>
   )
 }
 
-// ── Shimmer keyframe — injected once into the page ──
+// ── Global Shimmer Keyframes Injector ──
 function ShimmerStyle() {
   return (
     <style>{`
       @keyframes shimmer {
-        0%   { background-position: 200% 0; }
-        100% { background-position: -200% 0; }
+        100% { transform: translateX(100%); }
       }
     `}</style>
   )
@@ -38,39 +41,42 @@ function ShimmerStyle() {
 // ── Feed post card skeleton ──
 export function PostCardSkeleton() {
   return (
-    <div style={{
-      backgroundColor: '#16213e',
-      borderRadius: '12px',
-      padding: '20px',
-      marginBottom: '16px',
-      border: '1px solid #1e2a4a',
-    }}>
+    <div className="p-5 sm:p-6 rounded-2xl border border-border/80 bg-card space-y-4 shadow-sm relative overflow-hidden">
       <ShimmerStyle />
 
-      {/* Author row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-        <SkeletonBlock width="36px" height="36px" borderRadius="50%" />
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <SkeletonBlock width="140px" height="14px" />
-          <SkeletonBlock width="200px" height="12px" />
+      {/* Creator Identity Row */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <SkeletonBlock width="40px" height="40px" borderRadius="0.75rem" className="shrink-0" />
+          <div className="space-y-1.5">
+            <SkeletonBlock width="130px" height="14px" />
+            <SkeletonBlock width="180px" height="10px" />
+          </div>
         </div>
-        <SkeletonBlock width="70px" height="24px" borderRadius="20px" />
+        <SkeletonBlock width="70px" height="22px" borderRadius="999px" />
       </div>
 
-      {/* Title */}
-      <SkeletonBlock width="80%" height="16px" style={{ marginBottom: '8px' }} />
+      {/* Blueprint Title Preview */}
+      <div className="space-y-2 pt-1">
+        <SkeletonBlock width="85%" height="16px" />
+        <SkeletonBlock width="40%" height="16px" />
+      </div>
 
-      {/* Description lines */}
-      <SkeletonBlock width="100%" height="14px" style={{ marginBottom: '6px' }} />
-      <SkeletonBlock width="90%" height="14px" style={{ marginBottom: '6px' }} />
-      <SkeletonBlock width="60%" height="14px" style={{ marginBottom: '14px' }} />
+      {/* Description Body Paragraph preview */}
+      <div className="space-y-1.5 pt-1">
+        <SkeletonBlock width="100%" height="12px" />
+        <SkeletonBlock width="95%" height="12px" />
+        <SkeletonBlock width="70%" height="12px" />
+      </div>
 
-      {/* Reaction buttons */}
-      <div style={{ display: 'flex', gap: '8px' }}>
-        <SkeletonBlock width="70px" height="32px" borderRadius="8px" />
-        <SkeletonBlock width="70px" height="32px" borderRadius="8px" />
-        <SkeletonBlock width="70px" height="32px" borderRadius="8px" />
-        <SkeletonBlock width="60px" height="32px" borderRadius="8px" style={{ marginLeft: 'auto' }} />
+      {/* Interactive Toolbar row preview */}
+      <div className="flex items-center justify-between pt-4 border-t border-border/40">
+        <div className="flex items-center gap-2">
+          <SkeletonBlock width="54px" height="26px" borderRadius="0.5rem" />
+          <SkeletonBlock width="54px" height="26px" borderRadius="0.5rem" />
+          <SkeletonBlock width="54px" height="26px" borderRadius="0.5rem" />
+        </div>
+        <SkeletonBlock width="48px" height="26px" borderRadius="0.5rem" />
       </div>
     </div>
   )
@@ -79,40 +85,30 @@ export function PostCardSkeleton() {
 // ── Explore user card skeleton ──
 export function UserCardSkeleton() {
   return (
-    <div style={{
-      backgroundColor: '#16213e',
-      borderRadius: '12px',
-      padding: '24px',
-      border: '1px solid #2a2a4a',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '16px',
-    }}>
+    <div className="p-6 rounded-2xl border border-border/80 bg-card space-y-4 shadow-sm">
       <ShimmerStyle />
 
-      {/* Avatar + name row */}
-      <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-        <SkeletonBlock width="48px" height="48px" borderRadius="50%" />
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <SkeletonBlock width="140px" height="18px" />
-          <SkeletonBlock width="100px" height="13px" />
-          <SkeletonBlock width="120px" height="13px" />
+      <div className="flex gap-3 items-start">
+        <SkeletonBlock width="48px" height="48px" borderRadius="50%" className="shrink-0" />
+        <div className="space-y-1.5 flex-1">
+          <SkeletonBlock width="140px" height="16px" />
+          <SkeletonBlock width="100px" height="12px" />
+          <SkeletonBlock width="120px" height="12px" />
         </div>
       </div>
 
-      {/* Bio lines */}
-      <SkeletonBlock width="100%" height="14px" />
-      <SkeletonBlock width="85%" height="14px" />
-
-      {/* Skill chips */}
-      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-        <SkeletonBlock width="70px" height="24px" borderRadius="999px" />
-        <SkeletonBlock width="90px" height="24px" borderRadius="999px" />
-        <SkeletonBlock width="60px" height="24px" borderRadius="999px" />
+      <div className="space-y-1.5">
+        <SkeletonBlock width="100%" height="12px" />
+        <SkeletonBlock width="80%" height="12px" />
       </div>
 
-      {/* Connect button */}
-      <SkeletonBlock width="100%" height="40px" borderRadius="8px" />
+      <div className="flex gap-1.5 flex-wrap pt-1">
+        <SkeletonBlock width="60px" height="20px" borderRadius="999px" />
+        <SkeletonBlock width="75px" height="20px" borderRadius="999px" />
+        <SkeletonBlock width="50px" height="20px" borderRadius="999px" />
+      </div>
+
+      <SkeletonBlock width="100%" height="36px" borderRadius="0.75rem" className="mt-2" />
     </div>
   )
 }
@@ -120,94 +116,50 @@ export function UserCardSkeleton() {
 // ── Messages inbox item skeleton ──
 export function MessageItemSkeleton() {
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: '16px',
-      padding: '16px',
-      backgroundColor: '#16213e',
-      borderRadius: '12px',
-      marginBottom: '2px',
-    }}>
+    <div className="flex items-center gap-3 p-3.5 rounded-xl bg-card border border-border/40 mb-1 shadow-xs">
       <ShimmerStyle />
-
-      {/* Avatar */}
-      <SkeletonBlock width="48px" height="48px" borderRadius="50%" />
-
-      {/* Name + preview */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <SkeletonBlock width="120px" height="15px" />
-          <SkeletonBlock width="50px" height="12px" />
+      <SkeletonBlock width="44px" height="44px" borderRadius="50%" className="shrink-0" />
+      <div className="space-y-1.5 flex-1">
+        <div className="flex justify-between items-center">
+          <SkeletonBlock width="110px" height="14px" />
+          <SkeletonBlock width="40px" height="10px" />
         </div>
-        <SkeletonBlock width="220px" height="13px" />
-        <SkeletonBlock width="80px" height="12px" />
+        <SkeletonBlock width="190px" height="12px" />
       </div>
     </div>
   )
 }
+
 // ── Goals page skeleton ──
 export function GoalsSkeleton() {
   return (
-    <div style={{
-      minHeight: '100vh',
-      backgroundColor: '#0f0f1a',
-      padding: '40px 24px',
-    }}>
+    <div className="p-6 max-w-2xl mx-auto space-y-6">
       <ShimmerStyle />
-      <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+      
+      <div className="space-y-2">
+        <SkeletonBlock width="180px" height="28px" />
+        <SkeletonBlock width="240px" height="12px" />
+      </div>
 
-        {/* Header */}
-        <div style={{ marginBottom: '32px' }}>
-          <SkeletonBlock width="200px" height="32px" style={{ marginBottom: '8px' }} />
-          <SkeletonBlock width="240px" height="15px" />
+      <SkeletonBlock width="100%" height="6px" borderRadius="999px" className="my-6" />
+
+      <div className="space-y-3">
+        <div className="p-4 rounded-xl border border-border/60 bg-card flex items-center gap-3">
+          <SkeletonBlock width="20px" height="20px" borderRadius="0.35rem" className="shrink-0" />
+          <SkeletonBlock width="75%" height="14px" />
         </div>
-
-        {/* Progress bar */}
-        <SkeletonBlock width="100%" height="6px" borderRadius="999px" style={{ marginBottom: '40px' }} />
-
-        {/* Goal items */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '32px' }}>
-          <div style={{
-            backgroundColor: '#16213e',
-            borderRadius: '12px',
-            padding: '16px 20px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '16px',
-            border: '1px solid #2a2a4a',
-          }}>
-            <SkeletonBlock width="22px" height="22px" borderRadius="6px" />
-            <SkeletonBlock width="70%" height="16px" />
-          </div>
-          <div style={{
-            backgroundColor: '#16213e',
-            borderRadius: '12px',
-            padding: '16px 20px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '16px',
-            border: '1px solid #2a2a4a',
-          }}>
-            <SkeletonBlock width="22px" height="22px" borderRadius="6px" />
-            <SkeletonBlock width="50%" height="16px" />
-          </div>
+        <div className="p-4 rounded-xl border border-border/60 bg-card flex items-center gap-3">
+          <SkeletonBlock width="20px" height="20px" borderRadius="0.35rem" className="shrink-0" />
+          <SkeletonBlock width="50%" height="14px" />
         </div>
+      </div>
 
-        {/* Add goal input skeleton */}
-        <div style={{
-          backgroundColor: '#16213e',
-          borderRadius: '12px',
-          padding: '20px',
-          border: '1px solid #2a2a4a',
-        }}>
-          <SkeletonBlock width="100px" height="13px" style={{ marginBottom: '12px' }} />
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <SkeletonBlock width="100%" height="42px" borderRadius="8px" />
-            <SkeletonBlock width="80px" height="42px" borderRadius="8px" />
-          </div>
+      <div className="p-4 rounded-xl border border-border/80 bg-secondary/20 space-y-2 mt-4">
+        <SkeletonBlock width="90px" height="12px" />
+        <div className="flex gap-2">
+          <SkeletonBlock width="100%" height="38px" borderRadius="0.75rem" />
+          <SkeletonBlock width="70px" height="38px" borderRadius="0.75rem" className="shrink-0" />
         </div>
-
       </div>
     </div>
   )

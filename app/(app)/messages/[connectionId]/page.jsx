@@ -1,8 +1,15 @@
+// app/(app)/messages/[connectionId]/page.jsx
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
+import { motion } from 'framer-motion'
+import { ArrowLeft, Send, Sparkles, User, Clock, CheckCheck } from 'lucide-react'
+
+import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
 
 export default function ChatPage() {
   const params = useParams()
@@ -28,19 +35,17 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
-  // ─── Main init + realtime setup ───────────────────────────────────────────
+  // ─── MAIN INIT + REALTIME SETUP ───────────────────────────────────────────
   useEffect(() => {
     let channel = null
 
     async function init() {
-      // 1. Get logged in user from Supabase auth
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         router.push('/login')
         return
       }
 
-      // 2. Get current user's profile from our API
       const userRes = await fetch(`/api/users/${user.id}`)
       const userJson = await userRes.json()
       if (!userRes.ok) {
@@ -48,10 +53,8 @@ export default function ChatPage() {
         return
       }
       setCurrentUser(userJson.data)
-      currentUserRef.current = userJson.data  // ref stays fresh in callbacks
+      currentUserRef.current = userJson.data
 
-      // 3. Fetch messages + connection info from our API
-      //    This avoids the broken direct Supabase foreign key query
       const msgRes = await fetch(`/api/messages?connectionId=${connectionId}`)
       const msgJson = await msgRes.json()
 
@@ -62,7 +65,6 @@ export default function ChatPage() {
 
       setMessages(msgJson.data.messages || [])
 
-      // 4. Figure out who the other user is from the connection
       const otherId =
         msgJson.data.senderId === user.id
           ? msgJson.data.receiverId
@@ -75,8 +77,6 @@ export default function ChatPage() {
       setLoading(false)
       setTimeout(scrollToBottom, 100)
 
-      // 5. Set up Realtime subscription
-      //    .on() must come BEFORE .subscribe()
       channel = supabase.channel(`messages:${connectionId}`)
 
       channel
@@ -90,8 +90,6 @@ export default function ChatPage() {
           },
           (payload) => {
             const newMsg = payload.new
-            // Only add if from the other person — our own messages
-            // are already added optimistically in handleSend
             if (
               currentUserRef.current &&
               newMsg.sender_id !== currentUserRef.current.id
@@ -106,23 +104,20 @@ export default function ChatPage() {
 
     init()
 
-    // Cleanup — this must be at useEffect level, NOT inside init()
-    // Otherwise the channel never gets removed when you leave the page
     return () => {
       if (channel) supabase.removeChannel(channel)
     }
   }, [connectionId])
 
-  // ─── Send message ─────────────────────────────────────────────────────────
+  // ─── SEND MESSAGE ─────────────────────────────────────────────────────────
   const handleSend = async (e) => {
     e.preventDefault()
     if (!newMessage.trim() || sending) return
 
     setSending(true)
     const messageText = newMessage
-    setNewMessage('')  // clear input immediately
+    setNewMessage('')
 
-    // Optimistic update — show message instantly before API responds
     const tempMsg = {
       id: `temp-${Date.now()}`,
       content: messageText,
@@ -137,8 +132,8 @@ export default function ChatPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          connectionId: connectionId,          // must be connectionId not connection_id
-          senderId: currentUserRef.current?.id, // must include senderId
+          connectionId: connectionId,
+          senderId: currentUserRef.current?.id,
           content: messageText,
         }),
       })
@@ -146,11 +141,9 @@ export default function ChatPage() {
       const json = await res.json()
 
       if (!res.ok) {
-        // Remove optimistic message and restore input on failure
         setMessages(prev => prev.filter(m => m.id !== tempMsg.id))
         setNewMessage(messageText)
       } else {
-        // Replace temp message with the real one from the server
         setMessages(prev =>
           prev.map(m => m.id === tempMsg.id ? json.data : m)
         )
@@ -163,8 +156,7 @@ export default function ChatPage() {
     setSending(false)
   }
 
-  // ─── Helpers ──────────────────────────────────────────────────────────────
-
+  // ─── HELPERS ──────────────────────────────────────────────────────────────
   function formatTime(timestamp) {
     const date = new Date(timestamp)
     return date.toLocaleTimeString('en-US', {
@@ -189,7 +181,6 @@ export default function ChatPage() {
     })
   }
 
-  // Group messages by date for date dividers
   const groupedMessages = messages.reduce((groups, message) => {
     const date = new Date(message.created_at).toDateString()
     if (!groups[date]) groups[date] = []
@@ -197,327 +188,187 @@ export default function ChatPage() {
     return groups
   }, {})
 
-  // ─── Loading state ────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div style={{
-        height: '100vh',
-        background: '#111111',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        <p style={{
-          fontFamily: "'DM Sans', sans-serif",
-          fontSize: '15px',
-          color: '#9A9A8A'
-        }}>
-          Loading chat...
-        </p>
+      <div className="w-full h-[calc(100vh-100px)] flex flex-col items-center justify-center space-y-3">
+        <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+        <p className="text-xs text-muted-foreground font-medium font-mono animate-pulse">Loading chat...</p>
       </div>
     )
   }
 
-  // ─── Main render ──────────────────────────────────────────────────────────
   return (
-    <div style={{
-      height: '100vh',
-      background: '#111111',
-      display: 'flex',
-      flexDirection: 'column'
-    }}>
+    <div className="w-full max-w-4xl mx-auto h-[calc(100vh-120px)] flex flex-col bg-card border border-border/80 rounded-2xl shadow-sm overflow-hidden animate-in fade-in duration-300">
+      
+      {/* ── STICKY CONVERSATION HEADER ── */}
+      <div className="p-4 sm:p-5 border-b border-border/80 bg-background/80 backdrop-blur-md flex items-center justify-between gap-3 sticky top-0 z-20 shrink-0">
+        <div className="flex items-center gap-3">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => router.push('/messages')}
+            className="h-9 w-9 rounded-xl text-muted-foreground hover:text-foreground shrink-0"
+            title="Back to Messages"
+          >
+            <ArrowLeft size={16} />
+          </Button>
 
-      {/* ── Chat header ── */}
-      <div style={{
-        background: '#161616',
-        borderBottom: '1px solid #1E1E1E',
-        padding: '16px 24px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '12px',
-        position: 'sticky',
-        top: 0,
-        zIndex: 10
-      }}>
-        {/* Back button */}
-        <button
-          onClick={() => router.push('/messages')}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: '#F97316',
-            fontSize: '20px',
-            cursor: 'pointer',
-            padding: '4px',
-            display: 'flex',
-            alignItems: 'center'
-          }}
-        >
-          ←
-        </button>
-
-        {/* Avatar */}
-        <div style={{
-          width: '40px',
-          height: '40px',
-          borderRadius: '8px',
-          background: '#F9731620',
-          border: '2px solid #F9731640',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '16px',
-          fontWeight: '600',
-          color: '#F97316',
-          overflow: 'hidden',
-          flexShrink: 0
-        }}>
-          {otherUser?.profile_photo ? (
-            <img
-              src={otherUser.profile_photo}
-              alt=""
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              onError={e => { e.target.style.display = 'none' }}
-            />
-          ) : (
-            otherUser?.name?.charAt(0).toUpperCase()
-          )}
-        </div>
-
-        {/* Name + college */}
-        <div style={{ flex: 1 }}>
-          <div style={{
-            fontFamily: "'DM Sans', sans-serif",
-            fontSize: '16px',
-            fontWeight: '600',
-            color: '#F5F0E8'
-          }}>
-            {otherUser?.name || 'Loading...'}
+          {/* Recipient Avatar */}
+          <div className="w-10 h-10 rounded-xl bg-secondary border border-border flex items-center justify-center font-extrabold text-xs text-primary shrink-0 overflow-hidden shadow-inner relative">
+            {otherUser?.profile_photo ? (
+              <img
+                src={otherUser.profile_photo}
+                alt={otherUser.name || ''}
+                className="w-full h-full object-cover"
+                onError={e => { e.target.style.display = 'none' }}
+              />
+            ) : (
+              <span>{otherUser?.name?.charAt(0).toUpperCase() || '?'}</span>
+            )}
+            <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 border border-card" />
           </div>
-          {otherUser?.college && (
-            <div style={{
-              fontFamily: "'DM Sans', sans-serif",
-              fontSize: '13px',
-              color: '#6A6A5A'
-            }}>
-              {otherUser.college}
+
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-extrabold text-foreground leading-none">
+                {otherUser?.name || 'Student Builder'}
+              </span>
+              <span className="text-[9px] bg-primary/10 text-primary px-1 py-0.2 rounded font-mono uppercase font-bold">
+                Connected
+              </span>
             </div>
-          )}
+
+            <p className="text-[11px] text-muted-foreground mt-1 leading-none truncate max-w-xs">
+              {otherUser?.college || 'Student Builder'}
+            </p>
+          </div>
         </div>
 
-        {/* View profile button */}
-        <button
+        <Button
+          variant="outline"
+          size="sm"
           onClick={() => router.push(`/profile/${otherUser?.id}`)}
-          style={{
-            background: 'transparent',
-            color: '#F97316',
-            border: '1px solid #2A2A2A',
-            borderRadius: '6px',
-            padding: '8px 16px',
-            fontFamily: "'DM Sans', sans-serif",
-            fontSize: '13px',
-            fontWeight: '600',
-            cursor: 'pointer'
-          }}
+          className="rounded-xl text-xs h-8 px-3 shrink-0"
         >
-          View Profile
-        </button>
+          <User size={12} className="mr-1.5" />
+          <span>View Profile</span>
+        </Button>
       </div>
 
-      {/* ── Messages area ── */}
-      <div style={{
-        flex: 1,
-        overflowY: 'auto',
-        padding: '24px',
-      }}>
-        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-
-          {/* Empty state */}
-          {messages.length === 0 && (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '200px'
-            }}>
-              <p style={{
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: '14px',
-                color: '#6A6A5A'
-              }}>
-                No messages yet — say hello! 👋
-              </p>
+      {/* ── MESSAGES CANVAS AREA ── */}
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar bg-gradient-to-b from-background/30 via-transparent to-background/30 space-y-4">
+        
+        {messages.length === 0 && (
+          <div className="h-full flex flex-col items-center justify-center text-center space-y-2 py-12">
+            <div className="p-3 rounded-full bg-primary/5 text-primary">
+              <Sparkles size={20} />
             </div>
-          )}
+            <p className="text-xs font-bold text-foreground">Start the Conversation</p>
+            <p className="text-[11px] text-muted-foreground max-w-xs leading-relaxed font-normal">
+              Say hi, talk about what you are building, or brainstorm ideas together.
+            </p>
+          </div>
+        )}
 
-          {/* Messages grouped by date */}
-          {Object.entries(groupedMessages).map(([date, msgs]) => (
-            <div key={date}>
+        {Object.entries(groupedMessages).map(([date, msgs]) => (
+          <div key={date} className="space-y-3 pt-2">
+            
+            {/* Minimal date divider pill */}
+            <div className="flex items-center justify-center my-3">
+              <span className="px-3 py-1 rounded-full bg-secondary/60 text-[10px] font-bold text-muted-foreground tracking-wider uppercase font-mono border">
+                {formatDate(msgs[0].created_at)}
+              </span>
+            </div>
 
-              {/* Date divider */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                margin: '24px 0 16px'
-              }}>
-                <div style={{ flex: 1, height: '1px', background: '#1E1E1E' }} />
-                <div style={{
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: '12px',
-                  color: '#6A6A5A',
-                  fontWeight: '500',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px'
-                }}>
-                  {formatDate(msgs[0].created_at)}
-                </div>
-                <div style={{ flex: 1, height: '1px', background: '#1E1E1E' }} />
-              </div>
+            {/* Bubble rendering block */}
+            {msgs.map((message, index) => {
+              const isOwn = message.sender_id === currentUserRef.current?.id
+              const showAvatar = index === 0 || msgs[index - 1].sender_id !== message.sender_id
 
-              {/* Message bubbles */}
-              {msgs.map((message, index) => {
-                const isOwn = message.sender_id === currentUserRef.current?.id
-                const showAvatar =
-                  index === 0 || msgs[index - 1].sender_id !== message.sender_id
+              return (
+                <motion.div
+                  key={message.id}
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.1 }}
+                  className={cn(
+                    "flex items-end gap-2 group transition-all",
+                    isOwn ? "flex-row-reverse" : "flex-row"
+                  )}
+                >
+                  {!isOwn && (
+                    <div className={cn(
+                      "w-7 h-7 rounded-lg bg-secondary border border-border flex items-center justify-center font-bold text-[10px] text-primary shrink-0 overflow-hidden shadow-xs",
+                      !showAvatar && "invisible"
+                    )}>
+                      {otherUser?.profile_photo ? (
+                        <img
+                          src={otherUser.profile_photo}
+                          alt=""
+                          className="w-full h-full object-cover"
+                          onError={e => { e.target.style.display = 'none' }}
+                        />
+                      ) : (
+                        <span>{otherUser?.name?.charAt(0).toUpperCase() || '?'}</span>
+                      )}
+                    </div>
+                  )}
 
-                return (
-                  <div
-                    key={message.id}
-                    style={{
-                      display: 'flex',
-                      justifyContent: isOwn ? 'flex-end' : 'flex-start',
-                      marginBottom: '12px',
-                      gap: '8px',
-                      alignItems: 'flex-end'
-                    }}
-                  >
-                    {/* Other person's avatar */}
-                    {!isOwn && (
-                      <div style={{
-                        width: '32px',
-                        height: '32px',
-                        borderRadius: '8px',
-                        background: '#F9731620',
-                        border: showAvatar ? '2px solid #F9731640' : '2px solid transparent',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '13px',
-                        fontWeight: '600',
-                        color: '#F97316',
-                        flexShrink: 0,
-                        overflow: 'hidden',
-                        visibility: showAvatar ? 'visible' : 'hidden'
-                      }}>
-                        {showAvatar && (
-                          otherUser?.profile_photo ? (
-                            <img
-                              src={otherUser.profile_photo}
-                              alt=""
-                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                              onError={e => { e.target.style.display = 'none' }}
-                            />
-                          ) : (
-                            otherUser?.name?.charAt(0).toUpperCase()
-                          )
-                        )}
-                      </div>
-                    )}
+                  <div className="max-w-[75%] sm:max-w-[70%]">
+                    <div className={cn(
+                      "px-3.5 py-2.5 text-xs sm:text-sm leading-relaxed rounded-2xl whitespace-pre-wrap word-break-break-word font-normal transition-all",
+                      isOwn 
+                        ? "bg-primary text-white rounded-br-xs shadow-xs" 
+                        : "bg-background text-foreground border border-border/80 rounded-bl-xs shadow-xs"
+                    )}>
+                      {message.content}
+                    </div>
 
-                    {/* Bubble + timestamp */}
-                    <div style={{
-                      maxWidth: '70%',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: isOwn ? 'flex-end' : 'flex-start'
-                    }}>
-                      <div style={{
-                        background: isOwn ? '#F97316' : '#161616',
-                        color: isOwn ? '#111111' : '#F5F0E8',
-                        padding: '10px 14px',
-                        borderRadius: '12px',
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontSize: '14px',
-                        lineHeight: '1.5',
-                        wordBreak: 'break-word',
-                        border: isOwn ? 'none' : '1px solid #2A2A2A'
-                      }}>
-                        {message.content}
-                      </div>
-                      <div style={{
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontSize: '11px',
-                        color: '#6A6A5A',
-                        marginTop: '4px',
-                        paddingLeft: '4px',
-                        paddingRight: '4px'
-                      }}>
-                        {formatTime(message.created_at)}
-                      </div>
+                    <div className={cn(
+                      "text-[9px] text-muted-foreground mt-1 px-1 font-medium font-mono opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1",
+                      isOwn ? "justify-end" : "justify-start"
+                    )}>
+                      <Clock size={9} className="opacity-40" />
+                      <span>{formatTime(message.created_at)}</span>
+                      {isOwn && <CheckCheck size={10} className="text-primary ml-0.5" />}
                     </div>
                   </div>
-                )
-              })}
-            </div>
-          ))}
+                </motion.div>
+              )
+            })}
 
-          {/* Scroll anchor */}
-          <div ref={messagesEndRef} />
-        </div>
+          </div>
+        ))}
+
+        <div ref={messagesEndRef} />
       </div>
 
-      {/* ── Message input ── */}
-      <div style={{
-        background: '#161616',
-        borderTop: '1px solid #1E1E1E',
-        padding: '16px 24px',
-        position: 'sticky',
-        bottom: 0
-      }}>
-        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-          <form
-            onSubmit={handleSend}
-            style={{ display: 'flex', gap: '12px' }}
+      {/* ── INTERACTION INPUT COMPONENT ── */}
+      <div className="p-4 border-t border-border/80 bg-background/80 backdrop-blur-md shrink-0">
+        <form onSubmit={handleSend} className="relative flex items-center bg-card border border-border rounded-xl px-3 py-1.5 focus-within:border-primary transition-all shadow-inner">
+          <input
+            type="text"
+            value={newMessage}
+            onChange={e => setNewMessage(e.target.value)}
+            placeholder="Write a message..."
+            className="w-full bg-transparent border-none outline-none text-xs sm:text-sm text-foreground py-1 pr-20 font-sans"
+          />
+
+          <Button
+            type="submit"
+            size="sm"
+            disabled={sending || !newMessage.trim()}
+            className={cn(
+              "absolute right-2 h-8 px-3 rounded-lg text-xs font-bold transition-all shrink-0",
+              newMessage.trim() && !sending 
+                ? "bg-primary text-white shadow-xs" 
+                : "bg-secondary text-muted-foreground opacity-50 cursor-not-allowed"
+            )}
           >
-            <input
-              type="text"
-              value={newMessage}
-              onChange={e => setNewMessage(e.target.value)}
-              placeholder="Type a message..."
-              style={{
-                flex: 1,
-                background: '#111111',
-                border: '1px solid #2A2A2A',
-                borderRadius: '8px',
-                padding: '12px 16px',
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: '14px',
-                color: '#F5F0E8',
-                outline: 'none',
-              }}
-            />
-            <button
-              type="submit"
-              disabled={sending || !newMessage.trim()}
-              style={{
-                background: sending || !newMessage.trim() ? '#2A2A2A' : '#F97316',
-                color: sending || !newMessage.trim() ? '#6A6A5A' : '#111111',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '12px 24px',
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: '14px',
-                fontWeight: '600',
-                cursor: sending || !newMessage.trim() ? 'not-allowed' : 'pointer',
-                transition: 'background 0.15s',
-                flexShrink: 0
-              }}
-            >
-              {sending ? 'Sending...' : 'Send'}
-            </button>
-          </form>
-        </div>
+            <Send size={12} className="mr-1 sm:inline hidden" />
+            <span>{sending ? '...' : 'Send'}</span>
+          </Button>
+        </form>
       </div>
 
     </div>

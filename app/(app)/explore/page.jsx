@@ -1,10 +1,29 @@
 // app/(app)/explore/page.jsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
+import { motion } from 'framer-motion'
+import { 
+  Search, 
+  Sparkles, 
+  Users, 
+  MapPin, 
+  GraduationCap, 
+  CheckCircle2, 
+  Send, 
+  Plus, 
+  Filter, 
+  X,
+  UserPlus,
+  Compass
+} from 'lucide-react'
+
+import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
 import { UserCardSkeleton } from '@/components/Skeleton'
 
 export default function ExplorePage() {
@@ -30,7 +49,7 @@ export default function ExplorePage() {
         setCurrentUserId(user.id)
         await fetchData(user.id)
       } catch (err) {
-        setError('Failed to load. Please refresh.')
+        setError('Failed to load users. Please refresh.')
       } finally {
         setLoading(false)
       }
@@ -85,9 +104,9 @@ export default function ExplorePage() {
         direction: 'sent',
         otherUser: { id: receiverId },
       }])
-      toast.success('Request sent!')
+      toast.success('Connection request sent!')
     } catch (err) {
-      toast.error('Something went wrong. Please try again.')
+      toast.error('Network failure occurred. Try again later.')
     } finally {
       setConnectingTo(null)
     }
@@ -116,16 +135,14 @@ export default function ExplorePage() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#111111', padding: '32px 24px' }}>
-        <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
-          <div style={{ marginBottom: '32px' }}>
-            <div style={{ width: '200px', height: '28px', backgroundColor: '#1A1A1A', borderRadius: '6px', marginBottom: '8px' }} />
-            <div style={{ width: '150px', height: '14px', backgroundColor: '#1A1A1A', borderRadius: '6px' }} />
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
-            <UserCardSkeleton /><UserCardSkeleton /><UserCardSkeleton />
-            <UserCardSkeleton /><UserCardSkeleton /><UserCardSkeleton />
-          </div>
+      <div className="w-full space-y-8 animate-in fade-in duration-300">
+        <div className="space-y-2 pb-4 border-b border-border/60">
+          <div className="w-32 h-3 rounded-full bg-secondary animate-pulse" />
+          <div className="w-48 h-6 rounded-lg bg-secondary animate-pulse" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <UserCardSkeleton /><UserCardSkeleton /><UserCardSkeleton />
+          <UserCardSkeleton /><UserCardSkeleton /><UserCardSkeleton />
         </div>
       </div>
     )
@@ -133,253 +150,266 @@ export default function ExplorePage() {
 
   if (error) {
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#111111', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ color: '#FCA5A5', fontSize: '16px' }}>{error}</p>
-      </div>
+      <Card className="p-8 border-red-200 bg-red-50/50 text-red-800 text-center max-w-md mx-auto space-y-3">
+        <p className="font-bold text-sm">{error}</p>
+        <Button size="sm" onClick={() => window.location.reload()} className="h-8 text-xs">
+          Reload Page
+        </Button>
+      </Card>
     )
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#111111', padding: '32px 24px' }}>
-      <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
-
-        {/* Header */}
-        <div style={{ marginBottom: '32px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-            <div style={{ width: '28px', height: '3px', background: '#F97316', borderRadius: '2px' }} />
-            <span style={{ fontSize: '12px', color: '#F97316', letterSpacing: '0.1em', fontWeight: 500, textTransform: 'uppercase' }}>
-              Explore
+    <div className="w-full animate-in fade-in duration-300">
+      
+      {/* ── HEADER ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-8 border-b border-border/60">
+        <div>
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="w-2 h-2 rounded-full bg-primary" />
+            <span className="text-xs font-bold tracking-widest text-primary uppercase font-mono">
+              EXPLORE
             </span>
           </div>
-          <h1 style={{ fontSize: 'clamp(22px, 4vw, 32px)', fontWeight: 600, color: '#F5F0E8', letterSpacing: '-0.01em', marginBottom: '4px' }}>
-            Find your people
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+            Explore Companions
           </h1>
-          <p style={{ fontSize: '14px', color: '#6A6A5A' }}>
-            {users.length} builder{users.length !== 1 ? 's' : ''} on ClanSko
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+            Find other students building cool things, check out their stack, and connect.
           </p>
         </div>
 
-        {/* Search + Filter */}
-        <div style={{ display: 'flex', gap: '10px', marginBottom: '28px', flexWrap: 'wrap' }}>
+        <div className="flex items-center gap-2 bg-secondary/30 px-3 py-1.5 rounded-xl border border-border/60 shrink-0">
+          <Users size={14} className="text-primary" />
+          <span className="text-xs font-bold text-foreground">
+            {users.length} Builder{users.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+      </div>
+
+      {/* ── SEARCH & FILTER RIBBONS ── */}
+      <div className="flex flex-col sm:flex-row gap-3 pt-6 pb-8">
+        <div className="relative flex-1">
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Search by name, college, or bio..."
+            placeholder="Search by name, college, skills, or bio..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            style={{
-              flex: 1, minWidth: '220px',
-              backgroundColor: '#161616',
-              border: '1px solid #2A2A2A',
-              borderRadius: '8px',
-              padding: '10px 16px',
-              color: '#F5F0E8',
-              fontSize: '14px',
-              outline: 'none',
-              fontFamily: "'DM Sans', sans-serif",
-            }}
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-card border border-border text-xs sm:text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all shadow-inner font-sans"
           />
-          <select
-            value={skillFilter}
-            onChange={e => setSkillFilter(e.target.value)}
-            style={{
-              backgroundColor: '#161616',
-              border: '1px solid #2A2A2A',
-              borderRadius: '8px',
-              padding: '10px 16px',
-              color: skillFilter ? '#F5F0E8' : '#6A6A5A',
-              fontSize: '14px',
-              outline: 'none',
-              cursor: 'pointer',
-              minWidth: '160px',
-              fontFamily: "'DM Sans', sans-serif",
-            }}
-          >
-            <option value="">All skills</option>
-            {allSkills.map(skill => (
-              <option key={skill} value={skill}>{skill}</option>
-            ))}
-          </select>
-          {(searchQuery || skillFilter) && (
-            <button
-              onClick={() => { setSearchQuery(''); setSkillFilter('') }}
-              style={{
-                backgroundColor: 'transparent',
-                border: '1px solid #2A2A2A',
-                borderRadius: '8px',
-                padding: '10px 16px',
-                color: '#9A9A8A',
-                fontSize: '14px',
-                cursor: 'pointer',
-                fontFamily: "'DM Sans', sans-serif",
-              }}
-            >
-              Clear
-            </button>
-          )}
         </div>
 
-        {/* Empty state */}
-        {filteredUsers.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '64px 0', border: '1px dashed #2A2A2A', borderRadius: '12px' }}>
-            <p style={{ fontSize: '18px', color: '#F5F0E8', marginBottom: '8px', fontWeight: 500 }}>No builders found</p>
-            <p style={{ fontSize: '14px', color: '#6A6A5A' }}>
-              {searchQuery || skillFilter ? 'Try a different search or filter.' : "You're the first one here. Share ClanSko!"}
-            </p>
+        <div className="flex items-center gap-2">
+          <div className="relative shrink-0 w-full sm:w-auto">
+            <Filter size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <select
+              value={skillFilter}
+              onChange={e => setSkillFilter(e.target.value)}
+              className={cn(
+                "pl-8 pr-8 py-2.5 rounded-xl bg-card border border-border text-xs sm:text-sm outline-none cursor-pointer appearance-none transition-all w-full sm:w-44 font-sans",
+                skillFilter ? "text-primary font-bold border-primary/40 bg-primary/5" : "text-muted-foreground"
+              )}
+            >
+              <option value="">All Skills</option>
+              {allSkills.map(skill => (
+                <option key={skill} value={skill}>{skill}</option>
+              ))}
+            </select>
           </div>
-        )}
 
-        {/* User cards grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
-          {filteredUsers.map(user => (
+          {(searchQuery || skillFilter) && (
+            <Button
+              variant="ghost"
+              onClick={() => { setSearchQuery(''); setSkillFilter('') }}
+              className="h-10 px-3 rounded-xl text-xs text-muted-foreground hover:text-foreground shrink-0"
+              title="Clear filters"
+            >
+              <X size={14} className="mr-1" />
+              <span>Reset</span>
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* ── EMPTY STATE ── */}
+      {filteredUsers.length === 0 && (
+        <Card className="p-12 text-center border-dashed border-border/80 bg-secondary/10 flex flex-col items-center justify-center space-y-3">
+          <div className="w-12 h-12 rounded-2xl bg-secondary flex items-center justify-center text-muted-foreground">
+            <Compass size={24} />
+          </div>
+          <p className="text-sm font-bold text-foreground">No builders found</p>
+          <p className="text-xs text-muted-foreground max-w-sm leading-relaxed font-normal">
+            {searchQuery || skillFilter 
+              ? "No students match your search filters. Try changing your search query or skill filter."
+              : "No other builders found right now."}
+          </p>
+          {(searchQuery || skillFilter) && (
+            <Button variant="outline" size="sm" onClick={() => { setSearchQuery(''); setSkillFilter('') }} className="text-xs h-8">
+              Clear Filters
+            </Button>
+          )}
+        </Card>
+      )}
+
+      {/* ── COMPANION GRID CARDS STREAM ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredUsers.map((user, idx) => (
+          <motion.div
+            key={user.id}
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, delay: idx * 0.03 }}
+            className="flex"
+          >
             <UserCard
-              key={user.id}
               user={user}
               connectionInfo={getConnectionStatus(user.id)}
               onConnect={handleConnect}
               onRespond={handleRespond}
               isConnecting={connectingTo === user.id}
             />
-          ))}
-        </div>
+          </motion.div>
+        ))}
       </div>
+
     </div>
   )
 }
 
+// ── LAYERED EXPLORE COMPANION CARD ─────────────────────────────────────────────
 function UserCard({ user, connectionInfo, onConnect, onRespond, isConnecting }) {
   const { status, direction } = connectionInfo
 
   function getButtonConfig() {
-    if (status === 'accepted') return { label: 'Connected ✓', disabled: true, bg: '#1A2A1A', color: '#4ADE80', border: '1px solid #166534' }
-    if (status === 'pending' && direction === 'sent') return { label: 'Pending...', disabled: true, bg: 'transparent', color: '#6A6A5A', border: '1px solid #2A2A2A' }
-    if (status === 'pending' && direction === 'received') return { label: 'Respond →', disabled: false, bg: '#F97316', color: '#111', border: 'none' }
-    return { label: isConnecting ? 'Sending...' : 'Connect →', disabled: isConnecting, bg: '#F97316', color: '#111', border: 'none' }
+    if (status === 'accepted') return { 
+      label: 'Connected', 
+      disabled: true, 
+      variantStyle: "bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 opacity-100 hover:bg-emerald-500/10 cursor-default font-bold",
+      icon: CheckCircle2
+    }
+    if (status === 'pending' && direction === 'sent') return { 
+      label: 'Request Sent', 
+      disabled: true, 
+      variantStyle: "bg-secondary text-muted-foreground border border-border/80 opacity-70 cursor-not-allowed",
+      icon: Send
+    }
+    if (status === 'pending' && direction === 'received') return { 
+      label: 'Accept Request', 
+      disabled: false, 
+      variantStyle: "bg-primary text-white shadow-xs hover:shadow-md hover:shadow-primary/30 font-bold",
+      icon: Plus
+    }
+    return { 
+      label: isConnecting ? 'Sending...' : 'Connect', 
+      disabled: isConnecting, 
+      variantStyle: "bg-card text-foreground border border-border hover:border-primary/40 hover:bg-primary/5 hover:text-primary transition-all font-semibold",
+      icon: UserPlus
+    }
   }
 
   const btn = getButtonConfig()
+  const ActionIcon = btn.icon
 
   return (
-    <div style={{
-      backgroundColor: '#161616',
-      borderRadius: '12px',
-      padding: '24px',
-      border: '1px solid #1E1E1E',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '14px',
-      transition: 'border-color 0.2s',
-    }}
-      onMouseEnter={e => e.currentTarget.style.borderColor = '#2A2A2A'}
-      onMouseLeave={e => e.currentTarget.style.borderColor = '#1E1E1E'}
-    >
-      {/* Avatar + name */}
-      <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-        <div style={{
-          width: '48px', height: '48px', borderRadius: '50%',
-          backgroundColor: '#F9731620',
-          border: '1px solid #F9731640',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '18px', fontWeight: 600, color: '#F97316', flexShrink: 0,
-        }}>
-          {user.profile_photo
-            ? <img src={user.profile_photo} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-            : user.name?.charAt(0).toUpperCase()
-          }
+    <Card className="p-5 sm:p-6 rounded-2xl border-border/80 bg-card hover:border-border hover:shadow-md transition-all duration-200 group flex flex-col justify-between relative overflow-hidden w-full">
+      
+      {/* Decorative top accent block overlay */}
+      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+
+      <div className="space-y-4">
+        
+        {/* Avatar + Member Details */}
+        <div className="flex items-start gap-3.5">
+          <div className="w-12 h-12 rounded-xl bg-secondary border border-border flex items-center justify-center font-extrabold text-base text-primary shrink-0 overflow-hidden shadow-inner relative">
+            {user.profile_photo ? (
+              <img src={user.profile_photo} alt={user.name} className="w-full h-full object-cover" />
+            ) : (
+              <span>{user.name?.charAt(0).toUpperCase() || '?'}</span>
+            )}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <Link href={`/profile/${user.id}`} className="block group/link truncate">
+              <span className="text-sm sm:text-base font-extrabold text-foreground group-hover/link:text-primary transition-colors block truncate leading-tight">
+                {user.name || 'Student Builder'}
+              </span>
+            </Link>
+
+            <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-1 truncate font-medium">
+              <GraduationCap size={12} className="shrink-0 opacity-70" />
+              <span className="truncate">{user.college || 'Student Builder'}</span>
+            </div>
+
+            {user.branch && user.year && (
+              <p className="text-[10px] text-muted-foreground/80 mt-0.5 font-mono">
+                {user.branch} <span className="opacity-60">•</span> Year {user.year}
+              </p>
+            )}
+          </div>
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <Link href={`/profile/${user.id}`} style={{ textDecoration: 'none' }}>
-            <p style={{ fontSize: '16px', fontWeight: 600, color: '#F5F0E8', marginBottom: '2px', cursor: 'pointer' }}>
-              {user.name}
-            </p>
-          </Link>
-          <p style={{ fontSize: '12px', color: '#6A6A5A' }}>{user.college || 'College not set'}</p>
-          {user.branch && user.year && (
-            <p style={{ fontSize: '12px', color: '#6A6A5A' }}>{user.branch} · Year {user.year}</p>
-          )}
-        </div>
+
+        {/* Bio text block */}
+        {user.bio && (
+          <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 font-normal bg-secondary/20 p-2.5 rounded-xl border border-border/40">
+            {user.bio}
+          </p>
+        )}
+
+        {/* Tech Skills stack pills */}
+        {Array.isArray(user.skills) && user.skills.length > 0 && (
+          <div className="space-y-1">
+            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block font-mono">Tech Stack</span>
+            <div className="flex flex-wrap gap-1 pt-0.5">
+              {user.skills.slice(0, 4).map(skill => (
+                <span key={skill} className="px-2 py-0.5 rounded bg-secondary text-foreground border border-border/60 text-[10px] font-medium tracking-wide">
+                  {skill}
+                </span>
+              ))}
+              {user.skills.length > 4 && (
+                <span className="text-[10px] text-muted-foreground self-center px-1 font-mono font-medium">
+                  +{user.skills.length - 4}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Needed Companion tags array */}
+        {Array.isArray(user.looking_for) && user.looking_for.length > 0 && (
+          <div className="space-y-1 pt-1">
+            <span className="text-[9px] font-bold text-primary uppercase tracking-wider block font-mono">Looking For</span>
+            <div className="flex flex-wrap gap-1">
+              {user.looking_for.map(item => (
+                <span key={item} className="px-2 py-0.5 rounded bg-primary/5 text-primary border border-primary/10 text-[10px] font-medium font-mono">
+                  {item}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
       </div>
 
-      {/* Bio */}
-      {user.bio && (
-        <p style={{
-          fontSize: '13px', color: '#9A9A8A', lineHeight: 1.7,
-          display: '-webkit-box', WebkitLineClamp: 2,
-          WebkitBoxOrient: 'vertical', overflow: 'hidden',
-        }}>
-          {user.bio}
-        </p>
-      )}
-
-      {/* Skills */}
-      {Array.isArray(user.skills) && user.skills.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-          {user.skills.slice(0, 4).map(skill => (
-            <span key={skill} style={{
-              backgroundColor: '#1A1A2A',
-              color: '#9A9A8A',
-              fontSize: '11px',
-              padding: '3px 10px',
-              borderRadius: '4px',
-              border: '1px solid #2A2A3A',
-              fontWeight: 500,
-            }}>
-              {skill}
-            </span>
-          ))}
-          {user.skills.length > 4 && (
-            <span style={{ fontSize: '11px', color: '#6A6A5A', padding: '3px 0' }}>
-              +{user.skills.length - 4}
-            </span>
+      {/* Button Execution trigger row */}
+      <div className="pt-4 mt-2 border-t border-border/40">
+        <button
+          onClick={() => {
+            if (btn.disabled) return
+            if (status === 'pending' && direction === 'received') onRespond(connectionInfo.connectionId)
+            else onConnect(user.id)
+          }}
+          disabled={btn.disabled}
+          className={cn(
+            "w-full py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all duration-150 outline-none",
+            btn.variantStyle
           )}
-        </div>
-      )}
+        >
+          {ActionIcon && <ActionIcon size={13} className="shrink-0" />}
+          <span>{btn.label}</span>
+        </button>
+      </div>
 
-      {/* Looking for */}
-      {Array.isArray(user.looking_for) && user.looking_for.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
-          <span style={{ fontSize: '11px', color: '#6A6A5A' }}>Looking for:</span>
-          {user.looking_for.map(item => (
-            <span key={item} style={{
-              backgroundColor: '#F9731610',
-              color: '#F97316',
-              fontSize: '11px',
-              padding: '3px 10px',
-              borderRadius: '4px',
-              border: '1px solid #F9731630',
-              fontWeight: 500,
-            }}>
-              {item}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Connect button */}
-      <button
-        onClick={() => {
-          if (btn.disabled) return
-          if (status === 'pending' && direction === 'received') onRespond(connectionInfo.connectionId)
-          else onConnect(user.id)
-        }}
-        disabled={btn.disabled}
-        style={{
-          marginTop: 'auto',
-          backgroundColor: btn.bg,
-          color: btn.color,
-          border: btn.border,
-          borderRadius: '8px',
-          padding: '11px 0',
-          fontSize: '14px',
-          fontWeight: 600,
-          cursor: btn.disabled ? 'not-allowed' : 'pointer',
-          width: '100%',
-          fontFamily: "'DM Sans', sans-serif",
-          transition: 'opacity 0.2s',
-          opacity: isConnecting ? 0.7 : 1,
-        }}
-      >
-        {btn.label}
-      </button>
-    </div>
+    </Card>
   )
 }

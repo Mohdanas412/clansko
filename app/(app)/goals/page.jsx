@@ -1,9 +1,16 @@
+// app/(app)/goals/page.jsx
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import toast from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Target, Flame, Plus, Check, Trash2, Calendar, X, Sparkles, Award } from 'lucide-react';
+
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
 
 export default function GoalsPage() {
   const router = useRouter();
@@ -82,7 +89,7 @@ export default function GoalsPage() {
     e.preventDefault();
     if (!newGoalText.trim()) return;
     if (goals.length >= 3) {
-      toast.error('Maximum 3 goals per week');
+      toast.error('Limit reached: You can only set up to 3 weekly goals');
       return;
     }
 
@@ -92,7 +99,7 @@ export default function GoalsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          goal_text: newGoalText,
+          goal_text: newGoalText.trim(),
           week_key: currentWeekKey
         })
       });
@@ -102,12 +109,12 @@ export default function GoalsPage() {
         setGoals([...goals, data]);
         setNewGoalText('');
         setShowAddModal(false);
-        toast.success('Goal added!');
+        toast.success('Goal added successfully!');
       } else {
         toast.error('Failed to add goal');
       }
     } catch (error) {
-      toast.error('Something went wrong');
+      toast.error('Network error. Please try again.');
     }
     setSubmitting(false);
   };
@@ -115,7 +122,7 @@ export default function GoalsPage() {
   const handleToggle = async (goalId, currentStatus) => {
     const newStatus = currentStatus === 'done' ? 'pending' : 'done';
 
-    // Optimistic update
+    // Optimistic evaluation mapping
     setGoals(goals.map(g => {
       if (g.id === goalId) {
         const newStreakCount = newStatus === 'done' 
@@ -137,20 +144,18 @@ export default function GoalsPage() {
       });
 
       if (!response.ok) {
-        // Revert on error
-        setGoals(goals);
+        setGoals([...goals]);
         toast.error('Failed to update goal');
       }
     } catch (error) {
-      setGoals(goals);
-      toast.error('Something went wrong');
+      setGoals([...goals]);
+      toast.error('Error updating goal');
     }
   };
 
   const handleDelete = async (goalId) => {
-    if (!confirm('Delete this goal?')) return;
+    if (!confirm('Are you sure you want to delete this weekly goal?')) return;
 
-    // Optimistic update
     const oldGoals = [...goals];
     setGoals(goals.filter(g => g.id !== goalId));
 
@@ -167,7 +172,7 @@ export default function GoalsPage() {
       }
     } catch (error) {
       setGoals(oldGoals);
-      toast.error('Something went wrong');
+      toast.error('Network error. Could not delete.');
     }
   };
 
@@ -176,427 +181,245 @@ export default function GoalsPage() {
 
   if (loading) {
     return (
-      <div style={{ 
-  minHeight: '100vh', 
-  background: '#111111',
-  paddingTop: '24px',
-  paddingLeft: '24px',
-  paddingRight: '24px',
-  paddingBottom: '80px'
-}}>
-        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-          <div style={{
-            background: '#161616',
-            border: '1px solid #1E1E1E',
-            borderRadius: '12px',
-            padding: '32px',
-            marginBottom: '24px'
-          }}>
-            <div style={{ width: '200px', height: '28px', background: '#1E1E1E', borderRadius: '4px', marginBottom: '8px' }}></div>
-            <div style={{ width: '150px', height: '20px', background: '#1E1E1E', borderRadius: '4px' }}></div>
-          </div>
+      <div className="w-full max-w-3xl mx-auto space-y-6 animate-in fade-in duration-300">
+        <div className="w-full h-44 rounded-2xl bg-secondary animate-pulse" />
+        <div className="space-y-3">
+          <div className="w-full h-20 rounded-xl bg-secondary animate-pulse" />
+          <div className="w-full h-20 rounded-xl bg-secondary animate-pulse" />
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ 
-      minHeight: '100vh', 
-      background: '#111111',
-      paddingBottom: '80px'
-    }}>
-      <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px' }}>
-        
-        {/* Header Section */}
-        <div style={{
-          background: '#161616',
-          border: '1px solid #1E1E1E',
-          borderRadius: '12px',
-          padding: '32px',
-          marginBottom: '24px'
-        }}>
-          {/* Orange accent bar */}
-          <div style={{
-            width: '28px',
-            height: '3px',
-            background: '#F97316',
-            borderRadius: '2px',
-            marginBottom: '16px'
-          }}></div>
+    <div className="w-full max-w-3xl mx-auto animate-in fade-in duration-300 space-y-6">
+      
+      {/* ── MOTIVATIONAL HERO BLOCK ── */}
+      <Card className="p-6 sm:p-8 rounded-2xl border-border/80 bg-gradient-to-br from-card via-card to-primary/5 relative overflow-hidden shadow-sm">
+        {/* Subtle orange accent graphic circle */}
+        <div className="absolute -right-12 -top-12 w-40 h-40 rounded-full bg-primary/10 blur-xl pointer-events-none" />
 
-          <h1 style={{
-            fontFamily: "'DM Serif Display', serif",
-            fontSize: '40px',
-            fontWeight: '400',
-            fontStyle: 'italic',
-            color: '#F5F0E8',
-            marginBottom: '8px'
-          }}>
-            Weekly Goals
-          </h1>
-
-          <p style={{
-            fontFamily: "'DM Sans', sans-serif",
-            fontSize: '15px',
-            color: '#9A9A8A',
-            marginBottom: '24px'
-          }}>
-            {getWeekRange()} • Week {currentWeekKey.split('-W')[1]}
-          </p>
-
-          {/* Progress Bar */}
-          <div style={{ marginBottom: '20px' }}>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '8px'
-            }}>
-              <span style={{
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: '12px',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                color: '#F97316',
-                fontWeight: '500'
-              }}>
-                Progress
-              </span>
-              <span style={{
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: '14px',
-                fontWeight: '600',
-                color: '#F5F0E8'
-              }}>
-                {completedCount} / {goals.length} completed
-              </span>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 relative z-10">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-bold tracking-wider font-mono uppercase">
+              <Calendar size={11} />
+              <span>Week {currentWeekKey.split('-W')[1]}</span>
             </div>
-            <div style={{
-              width: '100%',
-              height: '8px',
-              background: '#1E1E1E',
-              borderRadius: '4px',
-              overflow: 'hidden'
-            }}>
-              <div style={{
-                width: `${progressPercentage}%`,
-                height: '100%',
-                background: 'linear-gradient(90deg, #F97316 0%, #FB923C 100%)',
-                transition: 'width 0.3s ease',
-                borderRadius: '4px'
-              }}></div>
-            </div>
-          </div>
 
-          {/* Add Goal Button */}
-          {goals.length < 3 && (
-            <button
-              onClick={() => setShowAddModal(true)}
-              style={{
-                background: '#F97316',
-                color: '#111111',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '12px 24px',
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: '14px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
-            >
-              <span style={{ fontSize: '18px' }}>+</span>
-              Add Goal
-            </button>
-          )}
-        </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+              Weekly Objectives
+            </h1>
 
-        {/* Goals List */}
-        {goals.length === 0 ? (
-          <div style={{
-            background: '#161616',
-            border: '1px solid #1E1E1E',
-            borderRadius: '12px',
-            padding: '60px 24px',
-            textAlign: 'center'
-          }}>
-            <div style={{
-              fontSize: '48px',
-              marginBottom: '16px'
-            }}>🎯</div>
-            <h3 style={{
-              fontFamily: "'DM Sans', sans-serif",
-              fontSize: '18px',
-              fontWeight: '600',
-              color: '#F5F0E8',
-              marginBottom: '8px'
-            }}>
-              No goals yet
-            </h3>
-            <p style={{
-              fontFamily: "'DM Sans', sans-serif",
-              fontSize: '14px',
-              color: '#9A9A8A',
-              marginBottom: '20px'
-            }}>
-              Set up to 3 goals for this week
+            <p className="text-xs sm:text-sm text-muted-foreground font-medium">
+              Set up to 3 clear goals for the week. Check them off to build weekly streaks and stay accountable.
             </p>
-            <button
-              onClick={() => setShowAddModal(true)}
-              style={{
-                background: '#F97316',
-                color: '#111111',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '12px 24px',
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: '14px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
-            >
-              Add Your First Goal
-            </button>
+
+            <p className="text-[11px] text-muted-foreground/80 font-mono pt-1">
+              This Week: <span className="text-foreground font-bold">{getWeekRange()}</span>
+            </p>
           </div>
+
+          {/* Progress Tracker Status Box */}
+          <div className="bg-background/80 backdrop-blur-md border border-border rounded-xl p-4 w-full sm:w-56 shrink-0 shadow-inner space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground font-mono">Progress</span>
+              <span className="text-xs font-extrabold text-primary font-mono">
+                {completedCount} / {goals.length} Completed
+              </span>
+            </div>
+
+            {/* Premium Micro Progress Gauge */}
+            <div className="w-full h-2 rounded-full bg-secondary overflow-hidden">
+              <div 
+                className="h-full bg-primary transition-all duration-500 rounded-full"
+                style={{ width: `${progressPercentage}%` }}
+              />
+            </div>
+
+            {goals.length < 3 && (
+              <Button
+                onClick={() => setShowAddModal(true)}
+                size="sm"
+                className="w-full h-8 text-xs rounded-lg shadow-xs mt-1"
+              >
+                <Plus size={13} className="mr-1 shrink-0" />
+                <span>Add Goal</span>
+              </Button>
+            )}
+          </div>
+        </div>
+      </Card>
+
+      {/* ── GOALS STATE STREAM ARRAY ── */}
+      <div className="space-y-3">
+        {goals.length === 0 ? (
+          <Card className="p-12 text-center border-dashed border-border/80 bg-secondary/10 flex flex-col items-center justify-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-secondary flex items-center justify-center text-muted-foreground">
+              <Target size={24} />
+            </div>
+            <p className="text-sm font-bold text-foreground">No Goals Set for This Week</p>
+            <p className="text-xs text-muted-foreground max-w-sm leading-relaxed font-normal">
+              Set clear, bite-sized goals to focus on shipping real work and sharing progress with friends.
+            </p>
+            <Button size="sm" onClick={() => setShowAddModal(true)} className="mt-2 text-xs h-8">
+              Add First Goal
+            </Button>
+          </Card>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {goals.map((goal, index) => (
+          goals.map((goal, index) => (
+            <motion.div
+              key={goal.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2, delay: index * 0.04 }}
+            >
               <GoalCard
-                key={goal.id}
                 goal={goal}
-                index={index}
                 onToggle={handleToggle}
                 onDelete={handleDelete}
               />
-            ))}
-          </div>
+            </motion.div>
+          ))
         )}
-
-        {/* Info Card */}
-        <div style={{
-          background: '#161616',
-          border: '1px solid #1E1E1E',
-          borderRadius: '12px',
-          padding: '24px',
-          marginTop: '24px'
-        }}>
-          <div style={{
-            fontFamily: "'DM Sans', sans-serif",
-            fontSize: '12px',
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px',
-            color: '#F97316',
-            fontWeight: '500',
-            marginBottom: '12px'
-          }}>
-            How It Works
-          </div>
-          <ul style={{
-            fontFamily: "'DM Sans', sans-serif",
-            fontSize: '14px',
-            color: '#9A9A8A',
-            lineHeight: '1.8',
-            paddingLeft: '20px',
-            margin: 0
-          }}>
-            <li>Set up to 3 goals each week</li>
-            <li>Check off goals as you complete them</li>
-            <li>Build streaks by consistently completing goals</li>
-            <li>Stay accountable and track your progress</li>
-          </ul>
-        </div>
       </div>
 
-      {/* Add Goal Modal */}
-      {showAddModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.8)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '24px',
-          zIndex: 1000
-        }} onClick={() => setShowAddModal(false)}>
-          <div style={{
-            background: '#161616',
-            border: '1px solid #2A2A2A',
-            borderRadius: '12px',
-            padding: '32px',
-            maxWidth: '500px',
-            width: '100%'
-          }} onClick={(e) => e.stopPropagation()}>
-            <h2 style={{
-              fontFamily: "'DM Sans', sans-serif",
-              fontSize: '24px',
-              fontWeight: '600',
-              color: '#F5F0E8',
-              marginBottom: '8px'
-            }}>
-              Add New Goal
-            </h2>
-            <p style={{
-              fontFamily: "'DM Sans', sans-serif",
-              fontSize: '14px',
-              color: '#9A9A8A',
-              marginBottom: '24px'
-            }}>
-              What do you want to accomplish this week?
-            </p>
-
-            <form onSubmit={handleAddGoal}>
-              <textarea
-                value={newGoalText}
-                onChange={(e) => setNewGoalText(e.target.value)}
-                placeholder="e.g., Ship MVP of my project"
-                rows={3}
-                style={{
-                  width: '100%',
-                  background: '#111111',
-                  border: '1px solid #2A2A2A',
-                  borderRadius: '8px',
-                  padding: '12px',
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: '14px',
-                  color: '#F5F0E8',
-                  resize: 'vertical',
-                  marginBottom: '20px'
-                }}
-              />
-
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  style={{
-                    background: 'transparent',
-                    color: '#9A9A8A',
-                    border: '1px solid #2A2A2A',
-                    borderRadius: '6px',
-                    padding: '10px 20px',
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting || !newGoalText.trim()}
-                  style={{
-                    background: '#F97316',
-                    color: '#111111',
-                    border: 'none',
-                    borderRadius: '6px',
-                    padding: '10px 20px',
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    cursor: submitting || !newGoalText.trim() ? 'not-allowed' : 'pointer',
-                    opacity: submitting || !newGoalText.trim() ? 0.5 : 1
-                  }}
-                >
-                  {submitting ? 'Adding...' : 'Add Goal'}
-                </button>
-              </div>
-            </form>
-          </div>
+      {/* ── ACCOUNTABILITY ARCHITECTURE BRIEFING ── */}
+      <Card className="p-5 rounded-xl border-border/60 bg-secondary/20 space-y-2">
+        <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+          <Award size={14} className="text-primary" />
+          <span>How Accountability Works</span>
         </div>
-      )}
+        <p className="text-[11px] text-muted-foreground leading-relaxed font-normal">
+          Setting a cap of 3 goals keeps you focused on what actually matters. Complete your weekly targets to grow your streaks and show up consistently in the feed.
+        </p>
+      </Card>
+
+      {/* ── ADD OBJECTIVE OVERLAY DIALOGUE ── */}
+      <AnimatePresence>
+        {showAddModal && (
+          <div className="fixed inset-0 bg-background/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ type: "spring", duration: 0.3 }}
+              className="w-full max-w-md bg-card border border-border rounded-2xl shadow-xl overflow-hidden"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="p-5 border-b border-border bg-background/50 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-foreground">Add Weekly Goal</h3>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Focus on shipping real work</p>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => setShowAddModal(false)} className="h-8 w-8 rounded-lg">
+                  <X size={14} />
+                </Button>
+              </div>
+
+              <form onSubmit={handleAddGoal} className="p-5 space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-foreground block font-mono">
+                    What is your goal for this week?
+                  </label>
+                  <textarea
+                    value={newGoalText}
+                    onChange={e => setNewGoalText(e.target.value)}
+                    placeholder="e.g., Build the landing page UI and integrate NextAuth..."
+                    rows={3}
+                    className="w-full p-3 rounded-xl bg-background border border-border text-xs sm:text-sm text-foreground outline-none focus:border-primary transition-all font-sans resize-none"
+                    autoFocus
+                  />
+                  <p className="text-[10px] text-muted-foreground">Keep it realistic, achievable, and actionable.</p>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/40">
+                  <Button variant="outline" size="sm" type="button" onClick={() => setShowAddModal(false)} className="text-xs h-8">
+                    Cancel
+                  </Button>
+                  <Button size="sm" type="submit" disabled={submitting || !newGoalText.trim()} className="text-xs h-8 shadow-xs">
+                    {submitting ? 'Adding...' : 'Add Goal'}
+                  </Button>
+                </div>
+              </form>
+
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
 
-function GoalCard({ goal, index, onToggle, onDelete }) {
+// ── COMPONENTIZED STREAK OBJECTIVE CARD CARD LAYER ───────────────────────────
+function GoalCard({ goal, onToggle, onDelete }) {
   const isDone = goal.status === 'done';
 
   return (
-    <div style={{
-      background: '#161616',
-      border: `1px solid ${isDone ? '#F9731640' : '#1E1E1E'}`,
-      borderRadius: '12px',
-      padding: '20px',
-      transition: 'all 0.2s',
-      position: 'relative'
-    }}>
-      <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-        {/* Checkbox */}
-        <button
-          onClick={() => onToggle(goal.id, goal.status)}
-          style={{
-            width: '24px',
-            height: '24px',
-            borderRadius: '6px',
-            border: `2px solid ${isDone ? '#F97316' : '#2A2A2A'}`,
-            background: isDone ? '#F97316' : 'transparent',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            flexShrink: 0,
-            marginTop: '2px'
-          }}
-        >
-          {isDone && (
-            <span style={{ color: '#111111', fontSize: '14px', fontWeight: '700' }}>✓</span>
+    <Card className={cn(
+      "p-4 sm:p-5 rounded-xl border transition-all duration-200 group flex items-start gap-3.5 relative overflow-hidden",
+      isDone 
+        ? "bg-secondary/20 border-border/60 shadow-none" 
+        : "bg-card border-border hover:border-primary/40 hover:shadow-xs"
+    )}>
+      
+      {/* Decorative vertical stripe if done */}
+      {isDone && (
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500/60" />
+      )}
+
+      {/* Modern interactive state toggle module */}
+      <button
+        onClick={() => onToggle(goal.id, goal.status)}
+        className={cn(
+          "w-5 h-5 sm:w-6 sm:h-6 rounded-lg border flex items-center justify-center shrink-0 mt-0.5 transition-all outline-none",
+          isDone 
+            ? "bg-emerald-500 border-emerald-600 text-white shadow-inner" 
+            : "bg-background border-border text-transparent hover:border-primary/60 group-hover:bg-primary/5"
+        )}
+        title={isDone ? "Uncheck State" : "Mark as Done"}
+      >
+        <Check size={12} className={cn(isDone && "stroke-[3]")} />
+      </button>
+
+      {/* Core Target Details Container */}
+      <div className="flex-1 min-w-0">
+        <p className={cn(
+          "text-xs sm:text-sm leading-relaxed transition-all font-normal",
+          isDone ? "text-muted-foreground line-through decoration-muted-foreground/60 font-medium" : "text-foreground font-semibold"
+        )}>
+          {goal.goal_text}
+        </p>
+
+        {/* Dynamic bottom feedback badges */}
+        <div className="flex items-center gap-3 mt-2 pt-1">
+          {goal.streak_count > 0 && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/10 text-primary text-[10px] font-bold font-mono tracking-wide">
+              <Flame size={10} className="fill-primary" />
+              <span>{goal.streak_count} Week Streak</span>
+            </span>
           )}
-        </button>
 
-        {/* Content */}
-        <div style={{ flex: 1 }}>
-          <p style={{
-            fontFamily: "'DM Sans', sans-serif",
-            fontSize: '15px',
-            lineHeight: '1.6',
-            color: isDone ? '#9A9A8A' : '#F5F0E8',
-            textDecoration: isDone ? 'line-through' : 'none',
-            marginBottom: '8px'
-          }}>
-            {goal.goal_text}
-          </p>
-
-          <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-            {goal.streak_count > 0 && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: '12px',
-                color: '#F97316',
-                fontWeight: '500'
-              }}>
-                <span>🔥</span>
-                {goal.streak_count} week{goal.streak_count !== 1 ? 's' : ''} streak
-              </div>
-            )}
-            <button
-              onClick={() => onDelete(goal.id)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#9A9A8A',
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: '12px',
-                cursor: 'pointer',
-                padding: '4px 8px',
-                borderRadius: '4px'
-              }}
-            >
-              Delete
-            </button>
-          </div>
+          <span className={cn(
+            "text-[9px] font-mono tracking-wider uppercase font-bold",
+            isDone ? "text-emerald-600" : "text-amber-600"
+          )}>
+            {isDone ? "Completed" : "In Progress"}
+          </span>
         </div>
       </div>
-    </div>
+
+      {/* Delete Trigger Actions */}
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => onDelete(goal.id)}
+        className="h-7 w-7 rounded-lg text-muted-foreground/40 hover:text-red-600 hover:bg-red-50 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+        title="Delete goal"
+      >
+        <Trash2 size={13} />
+      </Button>
+
+    </Card>
   );
 }

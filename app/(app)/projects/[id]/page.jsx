@@ -1,9 +1,29 @@
+// app/(app)/projects/[id]/page.jsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
+import { motion, AnimatePresence } from 'framer-motion'
+import { 
+  Briefcase, 
+  Sparkles, 
+  Users, 
+  UserPlus, 
+  Check, 
+  X, 
+  ArrowLeft, 
+  Layers, 
+  GraduationCap, 
+  ShieldCheck, 
+  CheckCircle2,
+  HelpCircle
+} from 'lucide-react'
+
+import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
 
 export default function ProjectPage({ params }) {
   const { id } = params
@@ -17,7 +37,7 @@ export default function ProjectPage({ params }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  // Invite modal state
+  // Invite overlay management mapping
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [connections, setConnections] = useState([])
   const [connectionsLoading, setConnectionsLoading] = useState(false)
@@ -39,44 +59,43 @@ export default function ProjectPage({ params }) {
       const res = await fetch(`/api/projects/${id}`)
       const json = await res.json()
       if (!res.ok) {
-        setError(json.error || 'Failed to load project')
+        setError(json.error || 'Failed to load project details')
         return
       }
       setProject(json.data.project)
       setAuthor(json.data.author)
-      setMembers(json.data.members)
+      setMembers(json.data.members || [])
       setIsOwner(json.data.isOwner)
       setCurrentUserId(json.data.currentUserId)
     } catch (err) {
-      setError('Something went wrong')
+      setError('Failed to load project')
     } finally {
       setLoading(false)
     }
   }
 
   async function openInviteModal() {
-  setShowInviteModal(true)
-  setConnectionsLoading(true)
-  try {
-    const { data: { user } } = await supabase.auth.getUser()
-    const res = await fetch(`/api/connections?userId=${user.id}`)
-    const json = await res.json()
-    if (!res.ok) throw new Error()
+    setShowInviteModal(true)
+    setConnectionsLoading(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      const res = await fetch(`/api/connections?userId=${user.id}`)
+      const json = await res.json()
+      if (!res.ok) throw new Error()
 
-    const teamUserIds = members.map(m => m.user_id)
+      const teamUserIds = members.map(m => m.user_id)
 
-    // Only accepted connections, not already on team
-    const eligible = (json.data || [])
-      .filter(c => c.status === 'accepted' && !teamUserIds.includes(c.otherUser?.id))
-      .map(c => c.otherUser)  // flatten to just the user object
+      const eligible = (json.data || [])
+        .filter(c => c.status === 'accepted' && !teamUserIds.includes(c.otherUser?.id))
+        .map(c => c.otherUser)
 
-    setConnections(eligible)
-  } catch {
-    toast.error('Could not load connections')
-  } finally {
-    setConnectionsLoading(false)
+      setConnections(eligible)
+    } catch {
+      toast.error('Could not load connections')
+    } finally {
+      setConnectionsLoading(false)
+    }
   }
-}
 
   async function invitePerson(userId) {
     setInviting(userId)
@@ -91,11 +110,11 @@ export default function ProjectPage({ params }) {
         toast.error(json.error || 'Failed to send invite')
         return
       }
-      toast.success('Invite sent!')
+      toast.success('Invite sent successfully!')
       setShowInviteModal(false)
       fetchProject()
     } catch {
-      toast.error('Something went wrong')
+      toast.error('Network error. Please try again.')
     } finally {
       setInviting(null)
     }
@@ -110,13 +129,13 @@ export default function ProjectPage({ params }) {
       })
       const json = await res.json()
       if (!res.ok) {
-        toast.error(json.error || 'Failed to respond')
+        toast.error(json.error || 'Failed to respond to invite')
         return
       }
-      toast.success(action === 'accepted' ? 'You joined the team!' : 'Invite declined')
+      toast.success(action === 'accepted' ? 'Welcome to the team!' : 'Invite declined')
       fetchProject()
     } catch {
-      toast.error('Something went wrong')
+      toast.error('Network error')
     }
   }
 
@@ -126,228 +145,312 @@ export default function ProjectPage({ params }) {
     m => m.user_id === currentUserId && m.status === 'pending'
   )
 
-  // ── Loading ──────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div style={{ maxWidth: 720, margin: '0 auto', padding: '40px 20px' }}>
-        <div style={{ height: 32, width: 260, background: '#1E1E1E', borderRadius: 8, marginBottom: 16 }} />
-        <div style={{ height: 120, background: '#161616', borderRadius: 12, marginBottom: 24 }} />
-        <div style={{ height: 200, background: '#161616', borderRadius: 12 }} />
+      <div className="w-full max-w-3xl mx-auto space-y-6 animate-in fade-in duration-300">
+        <div className="w-24 h-8 rounded-lg bg-secondary animate-pulse" />
+        <div className="w-full h-48 rounded-2xl bg-secondary animate-pulse" />
+        <div className="w-full h-32 rounded-xl bg-secondary animate-pulse" />
       </div>
     )
   }
 
-  // ── Error ────────────────────────────────────────────────────────────────
   if (error) {
     return (
-      <div style={{ maxWidth: 720, margin: '0 auto', padding: '40px 20px', textAlign: 'center' }}>
-        <p style={{ color: '#FCA5A5', marginBottom: 16 }}>{error}</p>
-        <button onClick={() => router.push('/feed')} style={{
-          background: '#F97316', color: '#111', border: 'none',
-          borderRadius: 6, padding: '10px 20px', fontWeight: 600, cursor: 'pointer'
-        }}>
+      <Card className="p-8 border-red-200 bg-red-50/50 text-red-800 text-center max-w-md mx-auto space-y-3">
+        <p className="font-bold text-sm">{error}</p>
+        <Button size="sm" onClick={() => router.push('/feed')} className="h-8 text-xs">
           Back to Feed
-        </button>
-      </div>
+        </Button>
+      </Card>
     )
   }
 
-  // ── Page ─────────────────────────────────────────────────────────────────
   return (
-    <div style={{ maxWidth: 720, margin: '0 auto', padding: '40px 20px' }}>
+    <div className="w-full max-w-3xl mx-auto animate-in fade-in duration-300 space-y-6">
+      
+      {/* ── CORE NAVIGATION ROW ── */}
+      <div className="flex items-center justify-between pb-2 border-b border-border/60">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={() => router.push('/projects')}
+          className="rounded-xl text-xs text-muted-foreground hover:text-foreground h-8 px-3 -ml-2"
+        >
+          <ArrowLeft size={14} className="mr-1.5" />
+          <span>My Projects</span>
+        </Button>
 
-      {/* My pending invite banner */}
+        <span className="text-[10px] font-bold text-muted-foreground font-mono tracking-wider uppercase">
+          PROJECT SPACE
+        </span>
+      </div>
+
+      {/* ── PENDING INVITATION ACTION ACCENT BANNER ── */}
       {myInvite && (
-        <div style={{
-          background: '#F9731610', border: '1px solid #F9731640',
-          borderRadius: 12, padding: '16px 20px', marginBottom: 24,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap'
-        }}>
-          <p style={{ color: '#F5F0E8', margin: 0, fontSize: 14 }}>
-            You&apos;ve been invited to join this team
-          </p>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={() => respondToInvite(myInvite.id, 'accepted')} style={{
-              background: '#F97316', color: '#111', border: 'none',
-              borderRadius: 6, padding: '8px 18px', fontWeight: 600,
-              cursor: 'pointer', fontSize: 14
-            }}>
-              Accept
-            </button>
-            <button onClick={() => respondToInvite(myInvite.id, 'declined')} style={{
-              background: 'transparent', color: '#9A9A8A',
-              border: '1px solid #2A2A2A', borderRadius: 6,
-              padding: '8px 18px', cursor: 'pointer', fontSize: 14
-            }}>
-              Decline
-            </button>
+        <Card className="p-4 sm:p-5 rounded-2xl bg-primary/5 border-primary/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs overflow-hidden relative">
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary" />
+          
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold tracking-widest text-primary uppercase block font-mono">
+              Team Invite
+            </span>
+            <p className="text-xs sm:text-sm font-extrabold text-foreground leading-tight">
+              You&apos;ve been invited to join this project team.
+            </p>
           </div>
-        </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              size="sm"
+              onClick={() => respondToInvite(myInvite.id, 'accepted')}
+              className="h-8 px-3.5 text-xs rounded-xl shadow-xs"
+            >
+              <CheckCircle2 size={13} className="mr-1" />
+              <span>Accept Invite</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => respondToInvite(myInvite.id, 'declined')}
+              className="h-8 px-3 text-xs rounded-xl hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+            >
+              Decline
+            </Button>
+          </div>
+        </Card>
       )}
 
-      {/* Project card */}
-      <div style={{
-        background: '#161616', border: '1px solid #1E1E1E',
-        borderRadius: 12, padding: '28px 28px 24px', marginBottom: 24
-      }}>
-        {/* Stage tag */}
-        <div style={{ marginBottom: 14 }}>
-          <span style={{
-            background: '#F9731610', color: '#F97316',
-            border: '1px solid #F9731630', borderRadius: 20,
-            padding: '4px 12px', fontSize: 12, fontWeight: 500
-          }}>
-            {project.stage || 'Idea'}
+      {/* ── PRIMARY BLUEPRINT WORKSPACE HERO CARD ── */}
+      <Card className="p-6 sm:p-8 rounded-3xl border-border bg-card shadow-sm space-y-4 relative overflow-hidden">
+        {/* Subtle orange accent graphic gradient layer */}
+        <div className="absolute right-0 top-0 w-72 h-72 rounded-full bg-gradient-to-br from-primary/5 via-transparent to-transparent pointer-events-none" />
+
+        <div className="flex items-center justify-between gap-2 relative z-10">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-primary/10 text-primary text-[11px] font-bold font-mono tracking-wide uppercase">
+            <Layers size={12} className="shrink-0" />
+            <span>Stage: {project.stage || 'Idea'}</span>
+          </span>
+
+          <span className="text-[10px] text-muted-foreground font-mono font-medium">
+            Project Details
           </span>
         </div>
 
-        <h1 style={{
-          fontFamily: '"DM Serif Display", serif',
-          fontSize: 28, color: '#F5F0E8', margin: '0 0 12px'
-        }}>
-          {project.title}
-        </h1>
+        <div className="space-y-2 relative z-10">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight leading-snug">
+            {project.title}
+          </h1>
 
-        <p style={{ color: '#9A9A8A', fontSize: 15, lineHeight: 1.7, margin: '0 0 20px' }}>
-          {project.description}
-        </p>
+          <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed font-normal bg-secondary/30 p-3.5 rounded-2xl border border-border/40">
+            {project.description}
+          </p>
+        </div>
 
+        {/* Roles Needed Parameters */}
         {project.looking_for && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span style={{ color: '#6A6A5A', fontSize: 12, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Looking for
+          <div className="space-y-1.5 pt-2 border-t border-border/60 relative z-10">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block font-mono">
+              Looking For
             </span>
-            {(Array.isArray(project.looking_for)
-              ? project.looking_for
-              : [project.looking_for]
-            ).map((role, i) => (
-              <span key={i} style={{
-                background: '#1E1E1E', color: '#9A9A8A',
-                borderRadius: 20, padding: '3px 10px', fontSize: 12
-              }}>
-                {role}
-              </span>
-            ))}
+            <div className="flex flex-wrap gap-1">
+              {(Array.isArray(project.looking_for) ? project.looking_for : [project.looking_for]).map((role, idx) => (
+                <span key={idx} className="px-2.5 py-0.5 rounded bg-secondary text-foreground text-[10px] font-medium border border-border/60 tracking-wide">
+                  {role}
+                </span>
+              ))}
+            </div>
           </div>
         )}
-      </div>
+      </Card>
 
-      {/* Author */}
+      {/* ── AUTHOR FOUNDER MODULE ── */}
       {author && (
-        <div
-          onClick={() => router.push(`/profile/${author.id}`)}
-          style={{
-            background: '#161616', border: '1px solid #1E1E1E',
-            borderRadius: 12, padding: '16px 20px', marginBottom: 24,
-            display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer'
-          }}
-        >
-          <div style={{
-            width: 44, height: 44, borderRadius: '50%',
-            background: '#F9731620', border: '1px solid #F9731640',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 16, fontWeight: 600, color: '#F97316', flexShrink: 0,
-            overflow: 'hidden'
-          }}>
-            {author.profile_photo
-              ? <img src={author.profile_photo} alt={author.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : author.name?.charAt(0).toUpperCase()
-            }
-          </div>
-          <div>
-            <p style={{ color: '#F5F0E8', fontWeight: 600, margin: 0, fontSize: 15 }}>
-              {author.name}
-              <span style={{
-                marginLeft: 8, fontSize: 11, fontWeight: 500,
-                color: '#F97316', background: '#F9731610',
-                border: '1px solid #F9731630', borderRadius: 20,
-                padding: '2px 8px', textTransform: 'uppercase', letterSpacing: '0.05em'
-              }}>
-                Founder
-              </span>
-            </p>
-            <p style={{ color: '#6A6A5A', fontSize: 13, margin: '2px 0 0' }}>
-              {author.college} · {author.branch} · Year {author.year}
-            </p>
-          </div>
+        <div className="space-y-2">
+          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block font-mono px-1">
+            Creator
+          </span>
+
+          <Card
+            onClick={() => router.push(`/profile/${author.id}`)}
+            className="p-4 sm:p-5 rounded-2xl border-border/80 bg-card hover:border-border hover:bg-secondary/20 transition-all cursor-pointer flex items-center justify-between gap-3 group"
+          >
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="w-11 h-11 rounded-xl bg-secondary border border-border flex items-center justify-center font-extrabold text-sm text-primary shrink-0 overflow-hidden shadow-inner relative">
+                {author.profile_photo ? (
+                  <img src={author.profile_photo} alt={author.name} className="w-full h-full object-cover" />
+                ) : (
+                  <span>{author.name?.charAt(0).toUpperCase() || '?'}</span>
+                )}
+              </div>
+
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs sm:text-sm font-bold text-foreground group-hover:text-primary transition-colors truncate">
+                    {author.name || 'Student Builder'}
+                  </span>
+                  <span className="px-1.5 py-0.2 rounded bg-primary/10 text-primary text-[9px] font-mono font-bold tracking-wide uppercase shrink-0">
+                    Creator
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5 truncate font-medium">
+                  <GraduationCap size={12} className="shrink-0 opacity-60" />
+                  <span className="truncate">{author.college || 'Student Builder'}</span>
+                </div>
+
+                {author.branch && author.year && (
+                  <p className="text-[10px] text-muted-foreground/80 mt-0.5 font-mono">
+                    {author.branch} <span className="opacity-60">•</span> Year {author.year}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <span className="text-xs font-bold text-primary group-hover:translate-x-0.5 transition-transform shrink-0 hidden sm:inline-block">
+              View Profile →
+            </span>
+          </Card>
         </div>
       )}
 
-      {/* Team section */}
-      <div style={{
-        background: '#161616', border: '1px solid #1E1E1E',
-        borderRadius: 12, padding: '24px 24px 20px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <div>
-            <div style={{ width: 28, height: 3, background: '#F97316', borderRadius: 2, marginBottom: 8 }} />
-            <h2 style={{
-              fontFamily: '"DM Serif Display", serif',
-              fontSize: 20, color: '#F5F0E8', margin: 0
-            }}>
-              Team
+      {/* ── COLLABORATION SQUAD MATRIX ── */}
+      <Card className="p-6 rounded-2xl border-border bg-card space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/60">
+          <div className="space-y-0.5">
+            <h2 className="text-sm font-extrabold text-foreground flex items-center gap-1.5">
+              <Users size={15} className="text-primary" />
+              <span>Team Members</span>
             </h2>
+            <p className="text-[11px] text-muted-foreground leading-none">
+              People building this project together.
+            </p>
           </div>
+
           {isOwner && (
-            <button onClick={openInviteModal} style={{
-              background: '#F97316', color: '#111', border: 'none',
-              borderRadius: 6, padding: '8px 18px', fontWeight: 600,
-              fontSize: 14, cursor: 'pointer'
-            }}>
-              + Invite
-            </button>
+            <Button
+              onClick={openInviteModal}
+              size="sm"
+              className="h-8 px-3 rounded-xl text-xs shadow-xs shrink-0 self-start sm:self-auto"
+            >
+              <UserPlus size={13} className="mr-1.5" />
+              <span>+ Invite Teammate</span>
+            </Button>
           )}
         </div>
 
-        {/* Accepted members */}
-        {acceptedMembers.length === 0 && (
-          <p style={{ color: '#6A6A5A', fontSize: 14, margin: '0 0 16px' }}>
-            No team members yet.
-          </p>
-        )}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {acceptedMembers.map(m => (
-            <MemberRow
-              key={m.id}
-              member={m}
-              onProfileClick={() => router.push(`/profile/${m.user_id}`)}
-            />
-          ))}
+        {/* Accepted Builders Array */}
+        <div className="space-y-2 pt-1">
+          {acceptedMembers.length === 0 ? (
+            <p className="text-xs text-muted-foreground italic text-center py-4 bg-secondary/10 rounded-xl border border-dashed border-border/80">
+              No other team members yet. Invite your friends or connections to build together.
+            </p>
+          ) : (
+            acceptedMembers.map(m => (
+              <MemberRow
+                key={m.id}
+                member={m}
+                onProfileClick={() => router.push(`/profile/${m.user_id}`)}
+              />
+            ))
+          )}
         </div>
 
-        {/* Pending invites — visible to owner only */}
+        {/* Pending Builders Loop */}
         {isOwner && pendingMembers.length > 0 && (
-          <div style={{ marginTop: 24 }}>
-            <p style={{
-              color: '#6A6A5A', fontSize: 11, fontWeight: 500,
-              textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10
-            }}>
-              Pending invites
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="pt-4 border-t border-border/60 space-y-2">
+            <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider block font-mono">
+              Pending Invites
+            </span>
+            <div className="space-y-2">
               {pendingMembers.map(m => (
                 <MemberRow key={m.id} member={m} pending />
               ))}
             </div>
           </div>
         )}
-      </div>
+      </Card>
 
-      {/* Invite modal */}
-      {showInviteModal && (
-        <InviteModal
-          connections={connections}
-          loading={connectionsLoading}
-          inviting={inviting}
-          onInvite={invitePerson}
-          onClose={() => setShowInviteModal(false)}
-        />
-      )}
+      {/* ── INVITATION MANAGER OVERLAY DIALOGUE ── */}
+      <AnimatePresence>
+        {showInviteModal && (
+          <div className="fixed inset-0 bg-background/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ type: "spring", duration: 0.25 }}
+              className="w-full max-w-md bg-card border border-border rounded-2xl shadow-xl overflow-hidden max-h-[85vh] flex flex-col"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="p-4 sm:p-5 border-b border-border bg-background/50 flex items-center justify-between shrink-0">
+                <div>
+                  <h3 className="text-sm font-bold text-foreground">Invite to Team</h3>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Invite people you are connected with</p>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => setShowInviteModal(false)} className="h-8 w-8 rounded-lg">
+                  <X size={14} />
+                </Button>
+              </div>
+
+              <div className="p-4 sm:p-5 flex-1 overflow-y-auto custom-scrollbar space-y-2">
+                {connectionsLoading ? (
+                  <div className="space-y-2">
+                    <div className="h-12 rounded-xl bg-secondary animate-pulse" />
+                    <div className="h-12 rounded-xl bg-secondary animate-pulse" />
+                    <div className="h-12 rounded-xl bg-secondary animate-pulse" />
+                  </div>
+                ) : connections.length === 0 ? (
+                  <div className="py-8 text-center text-xs text-muted-foreground space-y-2">
+                    <HelpCircle size={20} className="mx-auto text-muted-foreground/60" />
+                    <p>No eligible connection targets matched.</p>
+                    <p className="text-[11px] text-muted-foreground/80">
+                      Connect with other builders on the Explore page first to invite them to your team.
+                    </p>
+                  </div>
+                ) : (
+                  connections.map(c => (
+                    <div
+                      key={c.id}
+                      className="p-2.5 rounded-xl border border-border bg-background flex items-center justify-between gap-3 hover:border-primary/30 transition-all"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-9 h-9 rounded-lg bg-secondary border border-border flex items-center justify-center font-bold text-xs text-primary shrink-0 overflow-hidden shadow-xs">
+                          {c.profile_photo ? (
+                            <img src={c.profile_photo} alt={c.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <span>{c.name?.charAt(0).toUpperCase() || '?'}</span>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-foreground truncate">{c.name || 'Anonymous User'}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">{c.college || 'Student Builder'}</p>
+                        </div>
+                      </div>
+
+                      <Button
+                        size="sm"
+                        onClick={() => invitePerson(c.id)}
+                        disabled={inviting === c.id}
+                        className="h-7 px-3 rounded-lg text-xs tracking-wide shrink-0"
+                      >
+                        <span>{inviting === c.id ? '...' : 'Invite'}</span>
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </div>
+
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   )
 }
 
-// ── Member row ────────────────────────────────────────────────────────────────
+// ── COMPONENTIZED MEMBER ROW LAYERS ──────────────────────────────────────────
 function MemberRow({ member, pending = false, onProfileClick }) {
   const p = member.profile
   if (!p) return null
@@ -355,136 +458,39 @@ function MemberRow({ member, pending = false, onProfileClick }) {
   return (
     <div
       onClick={onProfileClick}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 12,
-        padding: '10px 12px', borderRadius: 10,
-        border: '1px solid #1E1E1E', cursor: onProfileClick ? 'pointer' : 'default',
-        transition: 'border-color 0.2s',
-        opacity: pending ? 0.6 : 1,
-      }}
-      onMouseEnter={e => { if (onProfileClick) e.currentTarget.style.borderColor = '#2A2A2A' }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = '#1E1E1E' }}
-    >
-      <div style={{
-        width: 38, height: 38, borderRadius: '50%',
-        background: '#F9731620', border: '1px solid #F9731640',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 14, fontWeight: 600, color: '#F97316', flexShrink: 0,
-        overflow: 'hidden'
-      }}>
-        {p.profile_photo
-          ? <img src={p.profile_photo} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          : p.name?.charAt(0).toUpperCase()
-        }
-      </div>
-      <div style={{ flex: 1 }}>
-        <p style={{ color: '#F5F0E8', fontWeight: 600, margin: 0, fontSize: 14 }}>
-          {p.name}
-        </p>
-        <p style={{ color: '#6A6A5A', fontSize: 12, margin: '2px 0 0' }}>
-          {p.college} · {member.role}
-        </p>
-      </div>
-      {pending && (
-        <span style={{
-          fontSize: 11, color: '#9A9A8A', background: '#1E1E1E',
-          borderRadius: 20, padding: '3px 10px'
-        }}>
-          Pending
-        </span>
+      className={cn(
+        "p-3 rounded-xl border flex items-center justify-between gap-3 transition-all duration-150",
+        pending 
+          ? "bg-secondary/10 border-dashed border-border/80 opacity-70 cursor-default" 
+          : "bg-secondary/20 border-border/60 hover:border-border hover:bg-secondary/40 cursor-pointer group"
       )}
-    </div>
-  )
-}
-
-// ── Invite modal ──────────────────────────────────────────────────────────────
-function InviteModal({ connections, loading, inviting, onInvite, onClose }) {
-  return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
-        zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 20
-      }}
     >
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          background: '#161616', border: '1px solid #1E1E1E',
-          borderRadius: 16, padding: 28, width: '100%', maxWidth: 460,
-          maxHeight: '80vh', overflowY: 'auto'
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h3 style={{
-            fontFamily: '"DM Serif Display", serif',
-            fontSize: 20, color: '#F5F0E8', margin: 0
-          }}>
-            Invite to team
-          </h3>
-          <button onClick={onClose} style={{
-            background: 'none', border: 'none', color: '#6A6A5A',
-            fontSize: 22, cursor: 'pointer', lineHeight: 1
-          }}>×</button>
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="w-9 h-9 rounded-lg bg-background border border-border flex items-center justify-center font-bold text-xs text-primary shrink-0 overflow-hidden shadow-xs">
+          {p.profile_photo ? (
+            <img src={p.profile_photo} alt={p.name} className="w-full h-full object-cover" />
+          ) : (
+            <span>{p.name?.charAt(0).toUpperCase() || '?'}</span>
+          )}
         </div>
 
-        {loading && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {[1, 2, 3].map(i => (
-              <div key={i} style={{ height: 60, background: '#1E1E1E', borderRadius: 10 }} />
-            ))}
-          </div>
-        )}
-
-        {!loading && connections.length === 0 && (
-          <p style={{ color: '#6A6A5A', fontSize: 14, textAlign: 'center', padding: '20px 0' }}>
-            No connections to invite. Connect with more builders first.
+        <div className="min-w-0">
+          <p className="text-xs font-bold text-foreground truncate group-hover:text-primary transition-colors">
+            {p.name || 'Student Builder'}
           </p>
-        )}
-
-        {!loading && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {connections.map(c => (
-              <div key={c.id} style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                padding: '10px 12px', borderRadius: 10,
-                border: '1px solid #1E1E1E'
-              }}>
-                <div style={{
-                  width: 38, height: 38, borderRadius: '50%',
-                  background: '#F9731620', border: '1px solid #F9731640',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 14, fontWeight: 600, color: '#F97316', flexShrink: 0,
-                  overflow: 'hidden'
-                }}>
-                  {c.profile_photo
-                    ? <img src={c.profile_photo} alt={c.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : c.name?.charAt(0).toUpperCase()
-                  }
-                </div>
-                <div style={{ flex: 1 }}>
-                  <p style={{ color: '#F5F0E8', fontWeight: 600, margin: 0, fontSize: 14 }}>{c.name}</p>
-                  <p style={{ color: '#6A6A5A', fontSize: 12, margin: '2px 0 0' }}>{c.college}</p>
-                </div>
-                <button
-                  onClick={() => onInvite(c.id)}
-                  disabled={inviting === c.id}
-                  style={{
-                    background: inviting === c.id ? '#2A2A2A' : '#F97316',
-                    color: inviting === c.id ? '#6A6A5A' : '#111',
-                    border: 'none', borderRadius: 6,
-                    padding: '7px 16px', fontWeight: 600,
-                    fontSize: 13, cursor: inviting === c.id ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  {inviting === c.id ? 'Inviting...' : 'Invite'}
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+          <p className="text-[10px] text-muted-foreground truncate mt-0.5">
+            {p.college || 'Student Builder'} <span className="opacity-60">•</span> {member.role || 'Member'}
+          </p>
+        </div>
       </div>
+
+      {pending ? (
+        <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 text-[9px] font-mono font-bold tracking-wide uppercase shrink-0">
+          Pending
+        </span>
+      ) : (
+        <ShieldCheck size={14} className="text-muted-foreground/40 group-hover:text-primary transition-colors shrink-0 hidden sm:inline-block" />
+      )}
     </div>
   )
 }

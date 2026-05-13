@@ -1,9 +1,31 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import toast from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  ArrowRight, 
+  ArrowLeft, 
+  Plus, 
+  X, 
+  Sparkles, 
+  User, 
+  GraduationCap, 
+  Terminal, 
+  Compass, 
+  CheckCircle2,
+  Rocket,
+  Users,
+  Award,
+  Zap,
+  Eye
+} from 'lucide-react';
+
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { cn } from '@/lib/utils';
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -19,7 +41,7 @@ export default function OnboardingPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  // Form data
+  // Core Form variables
   const [name, setName] = useState('');
   const [college, setCollege] = useState('');
   const [branch, setBranch] = useState('');
@@ -57,7 +79,9 @@ export default function OnboardingPage() {
 
   const handleAddSkill = () => {
     if (skillInput.trim() && skills.length < 5) {
-      setSkills([...skills, skillInput.trim()]);
+      if (!skills.includes(skillInput.trim())) {
+        setSkills([...skills, skillInput.trim()]);
+      }
       setSkillInput('');
     }
   };
@@ -69,13 +93,13 @@ export default function OnboardingPage() {
   const handleNext = () => {
     if (step === 1) {
       if (!name.trim() || !college.trim() || !branch.trim() || !year) {
-        toast.error('Please fill all fields');
+        toast.error('Please fill in all details');
         return;
       }
     }
     if (step === 2) {
       if (!bio.trim()) {
-        toast.error('Please write a short bio');
+        toast.error('Tell us a bit about yourself');
         return;
       }
     }
@@ -87,623 +111,412 @@ export default function OnboardingPage() {
   };
 
   const handleSubmit = async () => {
-  if (!lookingFor) {
-    toast.error('Please select what you&apos;re looking for');
-    return;
-  }
-
-  setSubmitting(true);
-
-  try {
-    // Verify session is still valid
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      toast.error('Session expired');
-      router.push('/login');
+    if (!lookingFor) {
+      toast.error('Please select what you are looking for');
       return;
     }
 
-    // Don't send user_id - the API gets it from the authenticated session
-    const response = await fetch('/api/users/update', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name,
-        college,
-        branch,
-        year,
-        bio,
-        skills,
-        looking_for: [lookingFor],
-        onboarding_done: true
-      })
-    });
+    setSubmitting(true);
 
-    const result = await response.json();
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('Session expired. Please log in again.');
+        router.push('/login');
+        return;
+      }
 
-    if (response.ok) {
-      toast.success('Welcome to ClanSko!');
-      window.location.href = '/feed';
-    } else {
-      console.error('API Error:', result);
-      toast.error(result.error || 'Failed to save profile');
+      const response = await fetch('/api/users/update', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name.trim(),
+          college: college.trim(),
+          branch: branch.trim(),
+          year,
+          bio: bio.trim(),
+          skills,
+          looking_for: [lookingFor],
+          onboarding_done: true
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        toast.success('Profile created! Welcome to ClanSko.');
+        window.location.href = '/feed';
+      } else {
+        console.error('API Error:', result);
+        toast.error(result.error || 'Failed to save profile');
+      }
+    } catch (error) {
+      console.error('Submission error:', error);
+      toast.error('Network error. Please try again.');
     }
-  } catch (error) {
-    console.error('Submission error:', error);
-    toast.error('Something went wrong');
-  }
 
-  setSubmitting(false);
-};
+    setSubmitting(false);
+  };
 
   if (loading) {
     return (
-      <div style={{
-        minHeight: '100vh',
-        background: '#111111',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        <div style={{
-          fontFamily: "'DM Sans', sans-serif",
-          fontSize: '15px',
-          color: '#9A9A8A'
-        }}>
-          Loading...
+      <div className="min-h-screen w-full flex items-center justify-center bg-background">
+        <div className="space-y-3 text-center animate-in fade-in duration-300">
+          <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin mx-auto" />
+          <p className="text-xs text-muted-foreground font-mono">Loading your workspace...</p>
         </div>
       </div>
     );
   }
 
+  const LOOKING_FOR_OPTIONS = [
+    { value: 'Co-founder', icon: Rocket, title: 'Find a Co-founder', desc: 'Looking for a dev or product builder to partner up and launch an idea.' },
+    { value: 'Collaborator', icon: Users, title: 'Project Collaborators', desc: 'Want to team up for hackathons, side projects, or learn together.' },
+    { value: 'Mentor', icon: Award, title: 'Guidance & Mentorship', desc: 'Looking for senior students or alumni to review code and give advice.' },
+    { value: 'Accountability Partner', icon: Zap, title: 'Accountability Partner', desc: 'Want someone to share weekly goals with and make sure we both ship code.' },
+    { value: 'Just Exploring', icon: Eye, title: 'Just Exploring', desc: 'Checking out what others are building and getting inspired.' }
+  ];
+
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: '#111111',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '24px'
-    }}>
-      <div style={{
-        maxWidth: '600px',
-        width: '100%'
-      }}>
+    <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 sm:p-6 bg-background relative overflow-y-auto">
+      
+      {/* Decorative top background radial glow */}
+      <div className="absolute top-[-100px] w-[500px] h-[500px] rounded-full bg-primary/5 blur-[120px] pointer-events-none" />
+
+      <div className="w-full max-w-xl space-y-6 relative z-10 my-auto py-8">
         
-        {/* Progress Bar */}
-        <div style={{ marginBottom: '40px' }}>
-          <div style={{
-            display: 'flex',
-            gap: '8px',
-            marginBottom: '12px'
-          }}>
+        {/* ── HEADER IDENTIFIER LOGO ── */}
+        <div className="text-center space-y-1">
+          <div className="inline-flex items-center gap-2 mb-2">
+            <span className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-bold font-mono tracking-wide uppercase">
+              GETTING STARTED
+            </span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+            Set Up Your Profile
+          </h1>
+          <p className="text-xs sm:text-sm text-muted-foreground max-w-md mx-auto">
+            Tell us about yourself and what you&apos;re building to connect with the right people.
+          </p>
+        </div>
+
+        {/* ── ELEGANT PROGRESS STRIP ── */}
+        <div className="space-y-2 pt-2">
+          <div className="grid grid-cols-3 gap-2">
             {[1, 2, 3].map((s) => (
-              <div key={s} style={{
-                flex: 1,
-                height: '4px',
-                background: s <= step ? '#F97316' : '#1E1E1E',
-                borderRadius: '2px',
-                transition: 'background 0.3s'
-              }}></div>
+              <div key={s} className="space-y-1">
+                <div 
+                  className={cn(
+                    "h-1.5 rounded-full transition-all duration-300",
+                    s < step ? "bg-primary" : s === step ? "bg-primary" : "bg-secondary"
+                  )} 
+                />
+                <span className={cn(
+                  "text-[9px] font-mono tracking-wider uppercase block text-center font-bold",
+                  s <= step ? "text-foreground" : "text-muted-foreground/60"
+                )}>
+                  {s === 1 ? 'Basics' : s === 2 ? 'Skills' : 'Goals'}
+                </span>
+              </div>
             ))}
           </div>
-          <div style={{
-            fontFamily: "'DM Sans', sans-serif",
-            fontSize: '13px',
-            color: '#9A9A8A',
-            textAlign: 'center'
-          }}>
-            Step {step} of 3
-          </div>
         </div>
 
-        {/* Card Container */}
-        <div style={{
-          background: '#161616',
-          border: '1px solid #1E1E1E',
-          borderRadius: '12px',
-          padding: '40px'
-        }}>
+        {/* ── CARD CANVAS MODULE ── */}
+        <Card className="p-6 sm:p-8 rounded-3xl border-border bg-card shadow-sm space-y-6 relative overflow-hidden">
           
-          {/* Step 1: Basic Info */}
-          {step === 1 && (
-            <div>
-              {/* Orange accent bar */}
-              <div style={{
-                width: '28px',
-                height: '3px',
-                background: '#F97316',
-                borderRadius: '2px',
-                marginBottom: '16px'
-              }}></div>
-
-              <h2 style={{
-                fontFamily: "'DM Serif Display', serif",
-                fontSize: '32px',
-                fontWeight: '400',
-                fontStyle: 'italic',
-                color: '#F5F0E8',
-                marginBottom: '8px'
-              }}>
-                Let&apos;s get started
-              </h2>
-
-              <p style={{
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: '15px',
-                color: '#9A9A8A',
-                marginBottom: '32px'
-              }}>
-                Tell us about yourself
-              </p>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <div>
-                  <label style={{
-                    display: 'block',
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: '13px',
-                    fontWeight: '500',
-                    color: '#9A9A8A',
-                    marginBottom: '8px'
-                  }}>
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Enter your name"
-                    style={{
-                      width: '100%',
-                      background: '#111111',
-                      border: '1px solid #2A2A2A',
-                      borderRadius: '8px',
-                      padding: '12px',
-                      fontFamily: "'DM Sans', sans-serif",
-                      fontSize: '14px',
-                      color: '#F5F0E8'
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{
-                    display: 'block',
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: '13px',
-                    fontWeight: '500',
-                    color: '#9A9A8A',
-                    marginBottom: '8px'
-                  }}>
-                    College
-                  </label>
-                  <input
-                    type="text"
-                    value={college}
-                    onChange={(e) => setCollege(e.target.value)}
-                    placeholder="e.g., IIT Delhi, NIT Trichy"
-                    style={{
-                      width: '100%',
-                      background: '#111111',
-                      border: '1px solid #2A2A2A',
-                      borderRadius: '8px',
-                      padding: '12px',
-                      fontFamily: "'DM Sans', sans-serif",
-                      fontSize: '14px',
-                      color: '#F5F0E8'
-                    }}
-                  />
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                  <div>
-                    <label style={{
-                      display: 'block',
-                      fontFamily: "'DM Sans', sans-serif",
-                      fontSize: '13px',
-                      fontWeight: '500',
-                      color: '#9A9A8A',
-                      marginBottom: '8px'
-                    }}>
-                      Branch
-                    </label>
-                    <input
-                      type="text"
-                      value={branch}
-                      onChange={(e) => setBranch(e.target.value)}
-                      placeholder="e.g., CSE"
-                      style={{
-                        width: '100%',
-                        background: '#111111',
-                        border: '1px solid #2A2A2A',
-                        borderRadius: '8px',
-                        padding: '12px',
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontSize: '14px',
-                        color: '#F5F0E8'
-                      }}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{
-                      display: 'block',
-                      fontFamily: "'DM Sans', sans-serif",
-                      fontSize: '13px',
-                      fontWeight: '500',
-                      color: '#9A9A8A',
-                      marginBottom: '8px'
-                    }}>
-                      Year
-                    </label>
-                    <select
-                      value={year}
-                      onChange={(e) => setYear(e.target.value)}
-                      style={{
-                        width: '100%',
-                        background: '#111111',
-                        border: '1px solid #2A2A2A',
-                        borderRadius: '8px',
-                        padding: '12px',
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontSize: '14px',
-                        color: '#F5F0E8'
-                      }}
-                    >
-                      <option value="">Select</option>
-                      <option value="1">1st Year</option>
-                      <option value="2">2nd Year</option>
-                      <option value="3">3rd Year</option>
-                      <option value="4">4th Year</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <button
-                onClick={handleNext}
-                style={{
-                  width: '100%',
-                  background: '#F97316',
-                  color: '#111111',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '14px',
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: '15px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  marginTop: '32px'
-                }}
+          <AnimatePresence mode="wait">
+            {step === 1 && (
+              <motion.div
+                key="step-1"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.2 }}
+                className="space-y-5"
               >
-                Continue
-              </button>
-            </div>
-          )}
-
-          {/* Step 2: Bio & Skills */}
-          {step === 2 && (
-            <div>
-              <div style={{
-                width: '28px',
-                height: '3px',
-                background: '#F97316',
-                borderRadius: '2px',
-                marginBottom: '16px'
-              }}></div>
-
-              <h2 style={{
-                fontFamily: "'DM Serif Display', serif",
-                fontSize: '32px',
-                fontWeight: '400',
-                fontStyle: 'italic',
-                color: '#F5F0E8',
-                marginBottom: '8px'
-              }}>
-                Tell your story
-              </h2>
-
-              <p style={{
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: '15px',
-                color: '#9A9A8A',
-                marginBottom: '32px'
-              }}>
-                Help others understand who you are
-              </p>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <div>
-                  <label style={{
-                    display: 'block',
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: '13px',
-                    fontWeight: '500',
-                    color: '#9A9A8A',
-                    marginBottom: '8px'
-                  }}>
-                    Bio
-                  </label>
-                  <textarea
-                    value={bio}
-                    onChange={(e) => setBio(e.target.value)}
-                    placeholder="What drives you? What are you building? What's your vision?"
-                    rows={5}
-                    style={{
-                      width: '100%',
-                      background: '#111111',
-                      border: '1px solid #2A2A2A',
-                      borderRadius: '8px',
-                      padding: '12px',
-                      fontFamily: "'DM Sans', sans-serif",
-                      fontSize: '14px',
-                      color: '#F5F0E8',
-                      resize: 'vertical'
-                    }}
-                  />
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-primary uppercase tracking-wider block font-mono">
+                    Step 1 of 3
+                  </span>
+                  <h2 className="text-lg sm:text-xl font-bold text-foreground leading-snug">
+                    College & Background
+                  </h2>
                 </div>
 
-                <div>
-                  <label style={{
-                    display: 'block',
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: '13px',
-                    fontWeight: '500',
-                    color: '#9A9A8A',
-                    marginBottom: '8px'
-                  }}>
-                    Skills (Max 5)
-                  </label>
-                  <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                <div className="space-y-4 pt-1">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-foreground tracking-wide">
+                      Your Name *
+                    </label>
                     <input
                       type="text"
-                      value={skillInput}
-                      onChange={(e) => setSkillInput(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && handleAddSkill()}
-                      placeholder="e.g., React, Python, Design"
-                      disabled={skills.length >= 5}
-                      style={{
-                        flex: 1,
-                        background: '#111111',
-                        border: '1px solid #2A2A2A',
-                        borderRadius: '8px',
-                        padding: '10px 12px',
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontSize: '14px',
-                        color: '#F5F0E8'
-                      }}
+                      required
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="e.g. Aman Gupta"
+                      className="w-full h-11 px-3.5 rounded-xl bg-background border border-border text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary transition-all font-sans"
                     />
-                    <button
-                      onClick={handleAddSkill}
-                      disabled={!skillInput.trim() || skills.length >= 5}
-                      style={{
-                        background: '#F97316',
-                        color: '#111111',
-                        border: 'none',
-                        borderRadius: '8px',
-                        padding: '10px 20px',
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontSize: '14px',
-                        fontWeight: '600',
-                        cursor: !skillInput.trim() || skills.length >= 5 ? 'not-allowed' : 'pointer',
-                        opacity: !skillInput.trim() || skills.length >= 5 ? 0.5 : 1
-                      }}
-                    >
-                      Add
-                    </button>
                   </div>
 
-                  {skills.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                      {skills.map((skill, index) => (
-                        <div key={index} style={{
-                          background: '#F9731610',
-                          border: '1px solid #F9731640',
-                          color: '#F97316',
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          fontSize: '13px',
-                          fontFamily: "'DM Sans', sans-serif",
-                          fontWeight: '500',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px'
-                        }}>
-                          {skill}
-                          <button
-                            onClick={() => handleRemoveSkill(index)}
-                            style={{
-                              background: 'transparent',
-                              border: 'none',
-                              color: '#F97316',
-                              cursor: 'pointer',
-                              fontSize: '16px',
-                              padding: 0,
-                              lineHeight: 1
-                            }}
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-foreground tracking-wide">
+                      College / University *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={college}
+                      onChange={(e) => setCollege(e.target.value)}
+                      placeholder="e.g. IIT Bombay, BITS Pilani, DTU"
+                      className="w-full h-11 px-3.5 rounded-xl bg-background border border-border text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary transition-all font-sans"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-bold text-foreground tracking-wide">
+                        Branch / Degree *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={branch}
+                        onChange={(e) => setBranch(e.target.value)}
+                        placeholder="e.g. Computer Science, BCA, IT"
+                        className="w-full h-11 px-3.5 rounded-xl bg-background border border-border text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary transition-all font-sans"
+                      />
                     </div>
-                  )}
+
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-bold text-foreground tracking-wide">
+                        Cohort Class Year *
+                      </label>
+                      <select
+                        required
+                        value={year}
+                        onChange={(e) => setYear(e.target.value)}
+                        className="w-full h-11 px-3.5 rounded-xl bg-background border border-border text-xs text-foreground outline-none focus:border-primary transition-all font-sans"
+                      >
+                        <option value="" disabled>Select your year</option>
+                        <option value="1">1st Year / Freshman</option>
+                        <option value="2">2nd Year / Sophomore</option>
+                        <option value="3">3rd Year / Junior</option>
+                        <option value="4">4th Year / Senior</option>
+                        <option value="5">Graduate / Alumnus</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              <div style={{ display: 'flex', gap: '12px', marginTop: '32px' }}>
-                <button
-                  onClick={handleBack}
-                  style={{
-                    flex: 1,
-                    background: 'transparent',
-                    color: '#9A9A8A',
-                    border: '1px solid #2A2A2A',
-                    borderRadius: '8px',
-                    padding: '14px',
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: '15px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Back
-                </button>
-                <button
-                  onClick={handleNext}
-                  style={{
-                    flex: 1,
-                    background: '#F97316',
-                    color: '#111111',
-                    border: 'none',
-                    borderRadius: '8px',
-                    padding: '14px',
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: '15px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Continue
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Step 3: Looking For */}
-          {step === 3 && (
-            <div>
-              <div style={{
-                width: '28px',
-                height: '3px',
-                background: '#F97316',
-                borderRadius: '2px',
-                marginBottom: '16px'
-              }}></div>
-
-              <h2 style={{
-                fontFamily: "'DM Serif Display', serif",
-                fontSize: '32px',
-                fontWeight: '400',
-                fontStyle: 'italic',
-                color: '#F5F0E8',
-                marginBottom: '8px'
-              }}>
-                What are you here for?
-              </h2>
-
-              <p style={{
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: '15px',
-                color: '#9A9A8A',
-                marginBottom: '32px'
-              }}>
-                This helps us connect you with the right people
-              </p>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {[
-                  { value: 'Co-founder', emoji: '🚀', desc: 'Find someone to build with' },
-                  { value: 'Collaborator', emoji: '🤝', desc: 'Work together on projects' },
-                  { value: 'Mentor', emoji: '🎓', desc: 'Learn from experienced builders' },
-                  { value: 'Accountability Partner', emoji: '⚡', desc: 'Stay consistent with goals' },
-                  { value: 'Just Exploring', emoji: '👀', desc: 'See what&apos;s happening' }
-                ].map((option) => (
-                  <button
-                    key={option.value}
-                    onClick={() => setLookingFor(option.value)}
-                    style={{
-                      background: lookingFor === option.value ? '#F9731610' : '#111111',
-                      border: `1px solid ${lookingFor === option.value ? '#F97316' : '#2A2A2A'}`,
-                      borderRadius: '8px',
-                      padding: '16px',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      transition: 'all 0.2s'
-                    }}
+                <div className="pt-3">
+                  <Button
+                    onClick={handleNext}
+                    className="w-full rounded-xl h-11 text-xs font-bold"
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <span style={{ fontSize: '24px' }}>{option.emoji}</span>
-                      <div style={{ flex: 1 }}>
-                        <div style={{
-                          fontFamily: "'DM Sans', sans-serif",
-                          fontSize: '15px',
-                          fontWeight: '600',
-                          color: lookingFor === option.value ? '#F97316' : '#F5F0E8',
-                          marginBottom: '2px'
-                        }}>
-                          {option.value}
-                        </div>
-                        <div style={{
-                          fontFamily: "'DM Sans', sans-serif",
-                          fontSize: '13px',
-                          color: '#9A9A8A'
-                        }}>
-                          {option.desc}
-                        </div>
-                      </div>
-                      {lookingFor === option.value && (
-                        <span style={{ color: '#F97316', fontSize: '20px' }}>✓</span>
-                      )}
+                    <span>Next: Your Skills & Vibe</span>
+                    <ArrowRight size={14} className="ml-1.5" />
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+
+            {step === 2 && (
+              <motion.div
+                key="step-2"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.2 }}
+                className="space-y-5"
+              >
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-primary uppercase tracking-wider block font-mono">
+                    Step 2 of 3
+                  </span>
+                  <h2 className="text-lg sm:text-xl font-bold text-foreground leading-snug">
+                    Bio & Tech Stack
+                  </h2>
+                </div>
+
+                <div className="space-y-4 pt-1">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-foreground tracking-wide">
+                      Short Bio / What are you building? *
+                    </label>
+                    <textarea
+                      required
+                      rows={4}
+                      value={bio}
+                      onChange={(e) => setBio(e.target.value)}
+                      placeholder="What are you working on? What tech do you love? Keep it casual and real."
+                      className="w-full p-3.5 rounded-xl bg-background border border-border text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary transition-all font-sans resize-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold text-foreground tracking-wide">
+                        Top Skills / Tech Stack
+                      </label>
+                      <span className="text-[10px] text-muted-foreground font-mono">
+                        {skills.length}/5 skills max
+                      </span>
                     </div>
-                  </button>
-                ))}
-              </div>
 
-              <div style={{ display: 'flex', gap: '12px', marginTop: '32px' }}>
-                <button
-                  onClick={handleBack}
-                  style={{
-                    flex: 1,
-                    background: 'transparent',
-                    color: '#9A9A8A',
-                    border: '1px solid #2A2A2A',
-                    borderRadius: '8px',
-                    padding: '14px',
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: '15px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Back
-                </button>
-                <button
-                  onClick={handleSubmit}
-                  disabled={submitting}
-                  style={{
-                    flex: 1,
-                    background: '#F97316',
-                    color: '#111111',
-                    border: 'none',
-                    borderRadius: '8px',
-                    padding: '14px',
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: '15px',
-                    fontWeight: '600',
-                    cursor: submitting ? 'not-allowed' : 'pointer',
-                    opacity: submitting ? 0.6 : 1
-                  }}
-                >
-                  {submitting ? 'Saving...' : 'Complete Setup'}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={skillInput}
+                        onChange={(e) => setSkillInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddSkill();
+                          }
+                        }}
+                        placeholder="e.g. React, Python, Figma, Node.js"
+                        disabled={skills.length >= 5}
+                        className="w-full h-11 px-3.5 rounded-xl bg-background border border-border text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary transition-all font-sans"
+                      />
+                      <Button
+                        type="button"
+                        onClick={handleAddSkill}
+                        disabled={!skillInput.trim() || skills.length >= 5}
+                        variant="secondary"
+                        className="h-11 px-4 rounded-xl text-xs font-bold shrink-0"
+                      >
+                        <Plus size={14} />
+                      </Button>
+                    </div>
 
-        {/* Footer Text */}
-        <div style={{
-          textAlign: 'center',
-          marginTop: '24px',
-          fontFamily: "'DM Sans', sans-serif",
-          fontSize: '13px',
-          color: '#6A6A5A'
-        }}>
-          Welcome to ClanSko — where builders find their tribe
-        </div>
+                    {skills.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-2">
+                        {skills.map((skill, idx) => (
+                          <span key={idx} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary/5 text-primary border border-primary/20 text-xs font-medium">
+                            <span>{skill}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveSkill(idx)}
+                              className="text-primary hover:text-primary/70 outline-none"
+                            >
+                              <X size={11} />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleBack}
+                    className="w-1/3 rounded-xl h-11 text-xs font-bold"
+                  >
+                    <ArrowLeft size={14} className="mr-1.5" />
+                    <span>Back</span>
+                  </Button>
+                  <Button
+                    onClick={handleNext}
+                    className="flex-1 rounded-xl h-11 text-xs font-bold"
+                  >
+                    <span>Next: What are you looking for?</span>
+                    <ArrowRight size={14} className="ml-1.5" />
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+
+            {step === 3 && (
+              <motion.div
+                key="step-3"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.2 }}
+                className="space-y-5"
+              >
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-primary uppercase tracking-wider block font-mono">
+                    Final Step
+                  </span>
+                  <h2 className="text-lg sm:text-xl font-bold text-foreground leading-snug">
+                    What brings you to ClanSko?
+                  </h2>
+                </div>
+
+                <div className="space-y-2.5 pt-1 max-h-[320px] overflow-y-auto custom-scrollbar pr-1">
+                  {LOOKING_FOR_OPTIONS.map((opt) => {
+                    const isSelected = lookingFor === opt.value;
+                    const Icon = opt.icon;
+                    return (
+                      <button
+                        type="button"
+                        key={opt.value}
+                        onClick={() => setLookingFor(opt.value)}
+                        className={cn(
+                          "w-full p-3.5 rounded-xl border text-left transition-all duration-150 flex items-start gap-3 outline-none",
+                          isSelected 
+                            ? "bg-primary/5 border-primary shadow-xs ring-1 ring-primary/10" 
+                            : "bg-background border-border/80 hover:bg-secondary/40"
+                        )}
+                      >
+                        <div className={cn(
+                          "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 transition-colors",
+                          isSelected ? "bg-primary text-white" : "bg-secondary text-muted-foreground"
+                        )}>
+                          <Icon size={15} />
+                        </div>
+                        <div className="space-y-0.5 flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <span className={cn(
+                              "text-xs font-bold tracking-tight block",
+                              isSelected ? "text-primary" : "text-foreground"
+                            )}>
+                              {opt.title}
+                            </span>
+                            {isSelected && <span className="text-[10px] text-primary font-mono font-bold">Selected</span>}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground leading-relaxed font-normal">
+                            {opt.desc}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="flex gap-3 pt-3 border-t border-border/60">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleBack}
+                    disabled={submitting}
+                    className="w-1/3 rounded-xl h-11 text-xs font-bold"
+                  >
+                    <ArrowLeft size={14} className="mr-1.5" />
+                    <span>Back</span>
+                  </Button>
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={submitting}
+                    className="flex-1 rounded-xl h-11 text-xs font-bold shadow-xs hover:shadow-sm"
+                  >
+                    <Sparkles size={13} className="mr-1.5 text-primary-foreground" />
+                    <span>{submitting ? 'Saving profile...' : 'Go to Live Feed'}</span>
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+        </Card>
+
       </div>
+
     </div>
   );
 }

@@ -1,12 +1,12 @@
 // app/api/posts/route.js
-// GET all posts, joined with author info from users table
+// GET all posts (or filtered by user_id), joined with author info
 // Ordered by newest first
-
+ 
 export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-
+ 
 function getSupabase() {
   const cookieStore = cookies()
   return createServerClient(
@@ -25,16 +25,24 @@ function getSupabase() {
     }
   )
 }
-
-export async function GET() {
+ 
+export async function GET(request) {
   try {
     const supabase = getSupabase()
-
-    // 1. Fetch all posts
-    //    The "users:user_id ( ... )" syntax is Supabase's way of doing a JOIN
-    //    It says: for each post, also fetch these fields from the users table
-    //    where users.id = posts.user_id
-    const { data: posts, error } = await supabase
+ 
+    // ✅ FIX: Auth check was missing entirely.
+    // Previously anyone could call this endpoint and read all posts + author data.
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 })
+    }
+ 
+    // ✅ NEW: Optional ?user_id= filter so profile pages can fetch a single
+    // user's posts via this same route instead of querying the DB directly.
+    const { searchParams } = new URL(request.url)
+    const filterUserId = searchParams.get('user_id')
+ 
+    let query = supabase
       .from('posts')
       .select(`
         id,
@@ -52,58 +60,61 @@ export async function GET() {
           profile_photo
         )
       `)
-      .order('created_at', { ascending: false })  // newest first
-
+      .order('created_at', { ascending: false })
+ 
+    // Apply user filter only when provided (profile page use case)
+    if (filterUserId) {
+      query = query.eq('user_id', filterUserId)
+    }
+ 
+    const { data: posts, error } = await query
+ 
     if (error) {
       console.error('Posts fetch error:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
-
-    // 2. For each post, also fetch reaction counts grouped by type
-    //    and total comment count
-    //    We do this with a second query and merge manually
+ 
+    if (!posts || posts.length === 0) {
+      return NextResponse.json({ data: [] }, { status: 200 })
+    }
+ 
     const postIds = posts.map(p => p.id)
-
-    // Fetch all reactions for these posts in one query
+ 
     const { data: reactions } = await supabase
       .from('reactions')
-      .select('post_id, type')
+      .select('post_id, type, user_id')
       .in('post_id', postIds)
-
-    // Fetch all comment counts for these posts in one query
+ 
     const { data: comments } = await supabase
       .from('comments')
-      .select('post_id')
+      .select('id, post_id, content, created_at, users:user_id(name, profile_photo)')
       .in('post_id', postIds)
-
-    // 3. Build a map: postId → { fire: N, eyes: N, handshake: N }
+      .order('created_at', { ascending: true })
+ 
     const reactionMap = {}
     const commentMap = {}
-
+ 
     postIds.forEach(id => {
-      reactionMap[id] = { fire: 0, eyes: 0, handshake: 0 }
-      commentMap[id] = 0
+      reactionMap[id] = []
+      commentMap[id] = []
     })
-
+ 
     reactions?.forEach(r => {
-      if (reactionMap[r.post_id] && r.type in reactionMap[r.post_id]) {
-        reactionMap[r.post_id][r.type]++
-      }
+      reactionMap[r.post_id]?.push(r)
     })
-
+ 
     comments?.forEach(c => {
-      commentMap[c.post_id] = (commentMap[c.post_id] || 0) + 1
+      commentMap[c.post_id]?.push(c)
     })
-
-    // 4. Merge counts into each post object
+ 
     const enrichedPosts = posts.map(post => ({
       ...post,
-      reactions: reactionMap[post.id] || { fire: 0, eyes: 0, handshake: 0 },
-      comment_count: commentMap[post.id] || 0,
+      reactions: reactionMap[post.id] || [],
+      comments: commentMap[post.id] || [],
     }))
-
+ 
     return NextResponse.json({ data: enrichedPosts }, { status: 200 })
-
+ 
   } catch (err) {
     console.error('Unexpected error:', err)
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 })

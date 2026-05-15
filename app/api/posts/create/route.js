@@ -1,12 +1,9 @@
 // app/api/posts/create/route.js
-// API route to create a new post in the posts table
-
 export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-
-// Helper: build a Supabase server client (same pattern as your auth routes)
+ 
 function getSupabase() {
   const cookieStore = cookies()
   return createServerClient(
@@ -25,31 +22,34 @@ function getSupabase() {
     }
   )
 }
-
+ 
 export async function POST(request) {
   try {
-    // 1. Parse request body
-    const { userId, title, description, stage, looking_for } = await request.json()
-
-    // 2. Validate required fields
-    if (!userId || !title || !description || !stage) {
+    const supabase = getSupabase()
+ 
+    // ✅ FIX: Auth check was missing entirely. userId was trusted from the body,
+    // meaning anyone could create posts attributed to any user ID they wanted.
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 })
+    }
+ 
+    // ✅ userId removed from destructuring — we use user.id from auth session
+    const { title, description, stage, looking_for } = await request.json()
+ 
+    if (!title || !description || !stage) {
       return NextResponse.json(
-        { error: 'userId, title, description, and stage are required.' },
+        { error: 'title, description, and stage are required.' },
         { status: 400 }
       )
     }
-
-    // 3. looking_for must be an array (matches your text[] column)
-    //    If not passed, default to empty array
+ 
     const lookingForArray = Array.isArray(looking_for) ? looking_for : []
-
-    const supabase = getSupabase()
-
-    // 4. Insert post into posts table
+ 
     const { data, error } = await supabase
       .from('posts')
       .insert({
-        user_id: userId,
+        user_id: user.id,          // ✅ always from auth session
         title,
         description,
         stage,
@@ -57,16 +57,16 @@ export async function POST(request) {
         view_count: 0,
         created_at: new Date().toISOString(),
       })
-      .select()   // returns the inserted row
+      .select()
       .single()
-
+ 
     if (error) {
       console.error('Post create error:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
-
+ 
     return NextResponse.json({ data }, { status: 200 })
-
+ 
   } catch (err) {
     console.error('Unexpected error:', err)
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 })

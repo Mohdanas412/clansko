@@ -1,12 +1,9 @@
 // app/api/connections/request/route.js
-// POST — Send a connection request from one user to another
-
 export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-
-// Same pattern as all other API routes — server client inside the function
+ 
 function getSupabase() {
   const cookieStore = cookies()
   return createServerClient(
@@ -25,68 +22,68 @@ function getSupabase() {
     }
   )
 }
-
+ 
 export async function POST(request) {
   try {
-    const { senderId, receiverId, message } = await request.json()
-
-    // Basic validation
-    if (!senderId || !receiverId) {
-      return NextResponse.json(
-        { error: 'senderId and receiverId are required.' },
-        { status: 400 }
-      )
-    }
-
-    // Can't connect with yourself
-    if (senderId === receiverId) {
-      return NextResponse.json(
-        { error: 'You cannot connect with yourself.' },
-        { status: 400 }
-      )
-    }
-
     const supabase = getSupabase()
-
-    // Check if a connection already exists in EITHER direction
-    // (A→B and B→A should both count as "already exists")
+ 
+    // ✅ FIX: Auth check was missing entirely. senderId was trusted from the body,
+    // meaning anyone could send connection requests impersonating any user.
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 })
+    }
+ 
+    // ✅ senderId removed — we use user.id from auth session
+    const { receiverId, message } = await request.json()
+ 
+    if (!receiverId) {
+      return NextResponse.json({ error: 'receiverId is required.' }, { status: 400 })
+    }
+ 
+    // Can't connect with yourself
+    if (user.id === receiverId) {
+      return NextResponse.json({ error: 'You cannot connect with yourself.' }, { status: 400 })
+    }
+ 
+    // Check if a connection already exists in either direction
     const { data: existing, error: checkError } = await supabase
       .from('connections')
       .select('id, status')
       .or(
-        `and(sender_id.eq.${senderId},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${senderId})`
+        `and(sender_id.eq.${user.id},receiver_id.eq.${receiverId}),` +
+        `and(sender_id.eq.${receiverId},receiver_id.eq.${user.id})`
       )
-      .maybeSingle() // maybeSingle returns null (not error) if no row found
-
+      .maybeSingle()
+ 
     if (checkError) {
       return NextResponse.json({ error: checkError.message }, { status: 500 })
     }
-
+ 
     if (existing) {
       return NextResponse.json(
         { error: `Connection already exists with status: ${existing.status}` },
-        { status: 409 } // 409 = Conflict
+        { status: 409 }
       )
     }
-
-    // Create the connection request
+ 
     const { data, error } = await supabase
       .from('connections')
       .insert({
-        sender_id: senderId,
+        sender_id: user.id,        // ✅ always from auth session
         receiver_id: receiverId,
         status: 'pending',
-        message: message?.trim() || null, // optional message
+        message: message?.trim() || null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
       .select()
       .single()
-
+ 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
-
+ 
     return NextResponse.json({ data }, { status: 200 })
   } catch (err) {
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 })

@@ -1,6 +1,6 @@
 // app/(app)/explore/page.jsx
 'use client'
-
+ 
 import React, { useState, useEffect } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import Link from 'next/link'
@@ -10,7 +10,6 @@ import {
   Search, 
   Sparkles, 
   Users, 
-  MapPin, 
   GraduationCap, 
   CheckCircle2, 
   Send, 
@@ -20,12 +19,12 @@ import {
   UserPlus,
   Compass
 } from 'lucide-react'
-
+ 
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { UserCardSkeleton } from '@/components/Skeleton'
-
+ 
 export default function ExplorePage() {
   const [currentUserId, setCurrentUserId] = useState(null)
   const [users, setUsers] = useState([])
@@ -35,15 +34,17 @@ export default function ExplorePage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [skillFilter, setSkillFilter] = useState('')
   const [connectingTo, setConnectingTo] = useState(null)
-
+ 
+  // ✅ SAFE — browser client used only for auth check below
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   )
-
+ 
   useEffect(() => {
     async function init() {
       try {
+        // ✅ SAFE — auth check on client is fine
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
         setCurrentUserId(user.id)
@@ -56,8 +57,9 @@ export default function ExplorePage() {
     }
     init()
   }, [])
-
+ 
   async function fetchData(userId) {
+    // ✅ SECURE — both API routes verified auth server-side
     const [usersRes, connectionsRes] = await Promise.all([
       fetch(`/api/users?userId=${userId}`),
       fetch(`/api/connections?userId=${userId}`),
@@ -69,13 +71,19 @@ export default function ExplorePage() {
     setUsers(usersData.data || [])
     setConnections(connectionsData.data || [])
   }
-
+ 
   async function handleRespond(connectionId) {
     try {
       const res = await fetch('/api/connections/respond', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ connectionId, userId: currentUserId, status: 'accepted' }),
+        body: JSON.stringify({
+          connectionId,
+          // ✅ FIX: userId removed — the API route now gets the responder's
+          // identity from the auth session. Sending it from the client allowed
+          // anyone to accept/reject requests on behalf of any other user.
+          status: 'accepted',
+        }),
       })
       const data = await res.json()
       if (data.error) { toast.error(data.error); return }
@@ -87,14 +95,19 @@ export default function ExplorePage() {
       toast.error('Something went wrong.')
     }
   }
-
+ 
   async function handleConnect(receiverId) {
     setConnectingTo(receiverId)
     try {
       const res = await fetch('/api/connections/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ senderId: currentUserId, receiverId }),
+        body: JSON.stringify({
+          // ✅ FIX: senderId removed — the API route now gets the sender's
+          // identity from the auth session. Sending it from the client allowed
+          // anyone to send connection requests impersonating any other user.
+          receiverId,
+        }),
       })
       const data = await res.json()
       if (data.error) { toast.error(data.error); return }
@@ -111,13 +124,13 @@ export default function ExplorePage() {
       setConnectingTo(null)
     }
   }
-
+ 
   function getConnectionStatus(otherUserId) {
     const match = connections.find(c => c.otherUser?.id === otherUserId)
     if (!match) return { status: 'none' }
     return { status: match.status, connectionId: match.connectionId, direction: match.direction }
   }
-
+ 
   const filteredUsers = users.filter(user => {
     const query = searchQuery.toLowerCase()
     const matchesSearch = !query ||
@@ -128,11 +141,11 @@ export default function ExplorePage() {
       (Array.isArray(user.skills) && user.skills.includes(skillFilter))
     return matchesSearch && matchesSkill
   })
-
+ 
   const allSkills = [...new Set(
     users.flatMap(u => Array.isArray(u.skills) ? u.skills : [])
   )].sort()
-
+ 
   if (loading) {
     return (
       <div className="w-full space-y-8 animate-in fade-in duration-300">
@@ -147,7 +160,7 @@ export default function ExplorePage() {
       </div>
     )
   }
-
+ 
   if (error) {
     return (
       <Card className="p-8 border-red-200 bg-red-50/50 text-red-800 text-center max-w-md mx-auto space-y-3">
@@ -158,18 +171,16 @@ export default function ExplorePage() {
       </Card>
     )
   }
-
+ 
   return (
     <div className="w-full animate-in fade-in duration-300">
-      
+ 
       {/* ── HEADER ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-8 border-b border-border/60">
         <div>
           <div className="flex items-center gap-2 mb-1.5">
             <span className="w-2 h-2 rounded-full bg-primary" />
-            <span className="text-xs font-bold tracking-widest text-primary uppercase font-mono">
-              EXPLORE
-            </span>
+            <span className="text-xs font-bold tracking-widest text-primary uppercase font-mono">EXPLORE</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
             Explore Companions
@@ -178,7 +189,7 @@ export default function ExplorePage() {
             Find other students building cool things, check out their stack, and connect.
           </p>
         </div>
-
+ 
         <div className="flex items-center gap-2 bg-secondary/30 px-3 py-1.5 rounded-xl border border-border/60 shrink-0">
           <Users size={14} className="text-primary" />
           <span className="text-xs font-bold text-foreground">
@@ -186,8 +197,8 @@ export default function ExplorePage() {
           </span>
         </div>
       </div>
-
-      {/* ── SEARCH & FILTER RIBBONS ── */}
+ 
+      {/* ── SEARCH & FILTER ── */}
       <div className="flex flex-col sm:flex-row gap-3 pt-6 pb-8">
         <div className="relative flex-1">
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -199,7 +210,7 @@ export default function ExplorePage() {
             className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-card border border-border text-xs sm:text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all shadow-inner font-sans"
           />
         </div>
-
+ 
         <div className="flex items-center gap-2">
           <div className="relative shrink-0 w-full sm:w-auto">
             <Filter size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
@@ -217,7 +228,7 @@ export default function ExplorePage() {
               ))}
             </select>
           </div>
-
+ 
           {(searchQuery || skillFilter) && (
             <Button
               variant="ghost"
@@ -231,7 +242,7 @@ export default function ExplorePage() {
           )}
         </div>
       </div>
-
+ 
       {/* ── EMPTY STATE ── */}
       {filteredUsers.length === 0 && (
         <Card className="p-12 text-center border-dashed border-border/80 bg-secondary/10 flex flex-col items-center justify-center space-y-3">
@@ -240,7 +251,7 @@ export default function ExplorePage() {
           </div>
           <p className="text-sm font-bold text-foreground">No builders found</p>
           <p className="text-xs text-muted-foreground max-w-sm leading-relaxed font-normal">
-            {searchQuery || skillFilter 
+            {searchQuery || skillFilter
               ? "No students match your search filters. Try changing your search query or skill filter."
               : "No other builders found right now."}
           </p>
@@ -251,8 +262,8 @@ export default function ExplorePage() {
           )}
         </Card>
       )}
-
-      {/* ── COMPANION GRID CARDS STREAM ── */}
+ 
+      {/* ── USER GRID ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredUsers.map((user, idx) => (
           <motion.div
@@ -272,54 +283,50 @@ export default function ExplorePage() {
           </motion.div>
         ))}
       </div>
-
+ 
     </div>
   )
 }
-
-// ── LAYERED EXPLORE COMPANION CARD ─────────────────────────────────────────────
+ 
+// ── USER CARD ──────────────────────────────────────────────────────────────────
 function UserCard({ user, connectionInfo, onConnect, onRespond, isConnecting }) {
   const { status, direction } = connectionInfo
-
+ 
   function getButtonConfig() {
-    if (status === 'accepted') return { 
-      label: 'Connected', 
-      disabled: true, 
+    if (status === 'accepted') return {
+      label: 'Connected',
+      disabled: true,
       variantStyle: "bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 opacity-100 hover:bg-emerald-500/10 cursor-default font-bold",
       icon: CheckCircle2
     }
-    if (status === 'pending' && direction === 'sent') return { 
-      label: 'Request Sent', 
-      disabled: true, 
+    if (status === 'pending' && direction === 'sent') return {
+      label: 'Request Sent',
+      disabled: true,
       variantStyle: "bg-secondary text-muted-foreground border border-border/80 opacity-70 cursor-not-allowed",
       icon: Send
     }
-    if (status === 'pending' && direction === 'received') return { 
-      label: 'Accept Request', 
-      disabled: false, 
+    if (status === 'pending' && direction === 'received') return {
+      label: 'Accept Request',
+      disabled: false,
       variantStyle: "bg-primary text-white shadow-xs hover:shadow-md hover:shadow-primary/30 font-bold",
       icon: Plus
     }
-    return { 
-      label: isConnecting ? 'Sending...' : 'Connect', 
-      disabled: isConnecting, 
+    return {
+      label: isConnecting ? 'Sending...' : 'Connect',
+      disabled: isConnecting,
       variantStyle: "bg-card text-foreground border border-border hover:border-primary/40 hover:bg-primary/5 hover:text-primary transition-all font-semibold",
       icon: UserPlus
     }
   }
-
+ 
   const btn = getButtonConfig()
   const ActionIcon = btn.icon
-
+ 
   return (
     <Card className="p-5 sm:p-6 rounded-2xl border-border/80 bg-card hover:border-border hover:shadow-md transition-all duration-200 group flex flex-col justify-between relative overflow-hidden w-full">
-      
-      {/* Decorative top accent block overlay */}
       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-
+ 
       <div className="space-y-4">
-        
-        {/* Avatar + Member Details */}
         <div className="flex items-start gap-3.5">
           <div className="w-12 h-12 rounded-xl bg-secondary border border-border flex items-center justify-center font-extrabold text-base text-primary shrink-0 overflow-hidden shadow-inner relative">
             {user.profile_photo ? (
@@ -328,19 +335,17 @@ function UserCard({ user, connectionInfo, onConnect, onRespond, isConnecting }) 
               <span>{user.name?.charAt(0).toUpperCase() || '?'}</span>
             )}
           </div>
-
+ 
           <div className="flex-1 min-w-0">
             <Link href={`/profile/${user.id}`} className="block group/link truncate">
               <span className="text-sm sm:text-base font-extrabold text-foreground group-hover/link:text-primary transition-colors block truncate leading-tight">
                 {user.name || 'Student Builder'}
               </span>
             </Link>
-
             <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-1 truncate font-medium">
               <GraduationCap size={12} className="shrink-0 opacity-70" />
               <span className="truncate">{user.college || 'Student Builder'}</span>
             </div>
-
             {user.branch && user.year && (
               <p className="text-[10px] text-muted-foreground/80 mt-0.5 font-mono">
                 {user.branch} <span className="opacity-60">•</span> Year {user.year}
@@ -348,15 +353,13 @@ function UserCard({ user, connectionInfo, onConnect, onRespond, isConnecting }) 
             )}
           </div>
         </div>
-
-        {/* Bio text block */}
+ 
         {user.bio && (
           <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 font-normal bg-secondary/20 p-2.5 rounded-xl border border-border/40">
             {user.bio}
           </p>
         )}
-
-        {/* Tech Skills stack pills */}
+ 
         {Array.isArray(user.skills) && user.skills.length > 0 && (
           <div className="space-y-1">
             <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block font-mono">Tech Stack</span>
@@ -374,8 +377,7 @@ function UserCard({ user, connectionInfo, onConnect, onRespond, isConnecting }) 
             </div>
           </div>
         )}
-
-        {/* Needed Companion tags array */}
+ 
         {Array.isArray(user.looking_for) && user.looking_for.length > 0 && (
           <div className="space-y-1 pt-1">
             <span className="text-[9px] font-bold text-primary uppercase tracking-wider block font-mono">Looking For</span>
@@ -388,10 +390,8 @@ function UserCard({ user, connectionInfo, onConnect, onRespond, isConnecting }) 
             </div>
           </div>
         )}
-
       </div>
-
-      {/* Button Execution trigger row */}
+ 
       <div className="pt-4 mt-2 border-t border-border/40">
         <button
           onClick={() => {
@@ -409,7 +409,6 @@ function UserCard({ user, connectionInfo, onConnect, onRespond, isConnecting }) 
           <span>{btn.label}</span>
         </button>
       </div>
-
     </Card>
   )
 }

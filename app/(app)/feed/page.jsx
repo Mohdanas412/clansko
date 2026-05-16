@@ -328,37 +328,7 @@ export default function FeedPage() {
  
         {/* Sidebar */}
         <div className="hidden lg:block lg:col-span-4 space-y-6 shrink-0">
-          <Card className="p-5 rounded-2xl border-border/80 bg-card/60 backdrop-blur-md space-y-4 shadow-sm">
-            <div className="flex items-center justify-between pb-3 border-b border-border/40">
-              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Community Vibe</span>
-              <span className="flex items-center gap-1.5 text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded-full">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" /> Live Sync
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-3 text-left">
-              <div className="p-3 rounded-xl bg-secondary/50 border border-border/40">
-                <p className="text-xs text-muted-foreground font-medium">Active Builders</p>
-                <p className="text-xl font-extrabold text-foreground mt-0.5">1,420+</p>
-                <p className="text-[9px] text-emerald-600 font-medium mt-1">↑ 12% this week</p>
-              </div>
-              <div className="p-3 rounded-xl bg-secondary/50 border border-border/40">
-                <p className="text-xs text-muted-foreground font-medium">Active Projects</p>
-                <p className="text-xl font-extrabold text-primary mt-0.5">312</p>
-                <p className="text-[9px] text-muted-foreground font-medium mt-1">Across 42 Campuses</p>
-              </div>
-            </div>
-            <div className="space-y-2 pt-2">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Top Builder Campuses</p>
-              <div className="space-y-1.5 text-xs">
-                {[['IIT Roorkee', '42 projects', true], ['DTU Delhi', '38 projects', false], ['BITS Pilani', '29 projects', false]].map(([name, count, highlight]) => (
-                  <div key={name} className="flex items-center justify-between px-2 py-1 rounded bg-secondary/30">
-                    <span className="font-medium text-foreground">{name}</span>
-                    <span className={cn("text-[11px] font-bold", highlight ? "text-primary" : "text-muted-foreground")}>{count}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </Card>
+
  
           <Card className="p-5 rounded-2xl border-border/80 bg-gradient-to-br from-card to-secondary/30 space-y-3 shadow-sm">
             <div className="flex items-center gap-2">

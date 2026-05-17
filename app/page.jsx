@@ -385,32 +385,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── 3. SOCIAL PROOF SECTION ── */}
-      <section className="py-12 border-y border-border/50 bg-secondary/30 relative z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <p className="text-center text-xs font-semibold text-muted-foreground tracking-widest uppercase mb-8">
-            Built by students from top engineering colleges across India
-          </p>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-            <div className="p-4">
-              <p className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">1,250+</p>
-              <p className="text-xs text-muted-foreground font-medium mt-1">Ambitious Student Builders</p>
-            </div>
-            <div className="p-4 border-l border-border/60">
-              <p className="text-3xl sm:text-4xl font-extrabold text-primary tracking-tight">310+</p>
-              <p className="text-xs text-muted-foreground font-medium mt-1">Ideas Pitched</p>
-            </div>
-            <div className="p-4 border-t md:border-t-0 md:border-l border-border/60">
-              <p className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">8,400+</p>
-              <p className="text-xs text-muted-foreground font-medium mt-1">Weekly Goals Hit</p>
-            </div>
-            <div className="p-4 border-t md:border-t-0 border-l border-border/60">
-              <p className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">₹0</p>
-              <p className="text-xs text-muted-foreground font-medium mt-1">Cost to join and team up</p>
-            </div>
-          </div>
-        </div>
-      </section>
+      
 
       {/* ── 4. “HOW CLANSKO WORKS” SECTION ── */}
       <section id="features" className="py-20 md:py-32 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto relative z-10 scroll-mt-20">
@@ -587,7 +562,7 @@ export default function LandingPage() {
           <div className="mt-12 text-center">
             <Link href="/signup">
               <Button variant="outline" className="rounded-xl border-border/80 text-xs font-semibold px-6 h-11 hover:bg-secondary">
-                <span>Browse all 1,200+ verified builders</span>
+                <span>Browse all verified builders</span>
                 <ArrowRight size={14} className="ml-1.5 text-muted-foreground" />
               </Button>
             </Link>

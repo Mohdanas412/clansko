@@ -1,6 +1,6 @@
 // app/api/posts/route.js
-// GET all posts (or filtered by user_id), joined with author info
-// Ordered by newest first
+// GET a bounded page of posts (optionally filtered by user_id), joined with author info.
+// Ordered by newest first.
  
 export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
@@ -37,10 +37,26 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 })
     }
  
-    // ✅ NEW: Optional ?user_id= filter so profile pages can fetch a single
-    // user's posts via this same route instead of querying the DB directly.
+    // Optional `user_id` supports profile pages. Feed pagination uses an opaque
+    // cursor carrying both sort fields so records with identical timestamps are
+    // never skipped or duplicated between pages.
     const { searchParams } = new URL(request.url)
     const filterUserId = searchParams.get('user_id')
+    const requestedLimit = Number.parseInt(searchParams.get('limit') || '20', 10)
+    const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 50) : 20
+    const cursor = searchParams.get('cursor')
+    let cursorData = null
+
+    if (cursor) {
+      try {
+        cursorData = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'))
+        if (!cursorData?.createdAt || !cursorData?.id || Number.isNaN(Date.parse(cursorData.createdAt))) {
+          throw new Error('Invalid cursor')
+        }
+      } catch {
+        return NextResponse.json({ error: 'Invalid cursor.' }, { status: 400 })
+      }
+    }
  
     let query = supabase
       .from('posts')
@@ -61,21 +77,27 @@ export async function GET(request) {
         )
       `)
       .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(limit + 1)
  
-    // Apply user filter only when provided (profile page use case)
-    if (filterUserId) {
-      query = query.eq('user_id', filterUserId)
+    if (filterUserId) query = query.eq('user_id', filterUserId)
+    if (cursorData) {
+      query = query.or(
+        `created_at.lt.${cursorData.createdAt},and(created_at.eq.${cursorData.createdAt},id.lt.${cursorData.id})`
+      )
     }
  
-    const { data: posts, error } = await query
+    const { data: postsWithExtra, error } = await query
+    const hasMore = (postsWithExtra?.length || 0) > limit
+    const posts = hasMore ? postsWithExtra.slice(0, limit) : (postsWithExtra || [])
  
     if (error) {
       console.error('Posts fetch error:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
  
-    if (!posts || posts.length === 0) {
-      return NextResponse.json({ data: [] }, { status: 200 })
+    if (posts.length === 0) {
+      return NextResponse.json({ data: [], nextCursor: null, hasMore: false }, { status: 200 })
     }
  
     const postIds = posts.map(p => p.id)
@@ -131,7 +153,12 @@ export async function GET(request) {
       team_members: teamMap[post.id] || [],
     }))
 
-    return NextResponse.json({ data: enrichedPosts }, { status: 200 })
+    const lastPost = posts[posts.length - 1]
+    const nextCursor = hasMore
+      ? Buffer.from(JSON.stringify({ createdAt: lastPost.created_at, id: lastPost.id })).toString('base64url')
+      : null
+
+    return NextResponse.json({ data: enrichedPosts, nextCursor, hasMore }, { status: 200 })
  
   } catch (err) {
     console.error('Unexpected error:', err)

@@ -76,6 +76,9 @@ export default function FeedPage() {
   const [formLoading, setFormLoading] = useState(false)
   const [formError, setFormError] = useState(null)
   const [selectedStageFilter, setSelectedStageFilter] = useState('all')
+  const [nextCursor, setNextCursor] = useState(null)
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
  
   useEffect(() => {
     async function init() {
@@ -92,17 +95,38 @@ export default function FeedPage() {
     try {
       setLoading(true)
       setError(null)
-      // ✅ SECURE — /api/posts now has auth check (fixed in route.js)
-      const res = await fetch('/api/posts')
+      const res = await fetch('/api/posts?limit=20')
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Failed to load posts')
-      const fetchedPosts = json.data || []
-      setPosts(fetchedPosts)
- 
+      setPosts(json.data || [])
+      setNextCursor(json.nextCursor || null)
+      setHasMore(Boolean(json.hasMore))
     } catch (err) {
       setError(err.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function loadMorePosts() {
+    if (!hasMore || !nextCursor || loadingMore) return
+
+    try {
+      setLoadingMore(true)
+      const res = await fetch(`/api/posts?limit=20&cursor=${encodeURIComponent(nextCursor)}`)
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to load more posts')
+
+      setPosts(previous => {
+        const existingIds = new Set(previous.map(post => post.id))
+        return [...previous, ...(json.data || []).filter(post => !existingIds.has(post.id))]
+      })
+      setNextCursor(json.nextCursor || null)
+      setHasMore(Boolean(json.hasMore))
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoadingMore(false)
     }
   }
  
@@ -309,6 +333,19 @@ export default function FeedPage() {
               />
             </motion.div>
           ))}
+
+          {!loading && hasMore && selectedStageFilter === 'all' && (
+            <div className="flex justify-center pt-2">
+              <Button
+                variant="outline"
+                onClick={loadMorePosts}
+                disabled={loadingMore}
+                className="min-w-40 rounded-xl text-xs"
+              >
+                {loadingMore ? 'Loading...' : 'Load more posts'}
+              </Button>
+            </div>
+          )}
         </div>
  
         {/* Sidebar */}

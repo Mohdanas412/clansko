@@ -27,6 +27,9 @@ export default function ChatPage() {
   const [newMessage, setNewMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
+  const [nextCursor, setNextCursor] = useState(null)
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
  
   const messagesEndRef = useRef(null)
   const currentUserRef = useRef(null)
@@ -57,7 +60,7 @@ export default function ChatPage() {
       currentUserRef.current = userJson.data
  
       // ✅ SECURE — API route now verifies auth + connection ownership server-side
-      const msgRes = await fetch(`/api/messages?connectionId=${connectionId}`)
+      const msgRes = await fetch(`/api/messages?connectionId=${connectionId}&limit=50`)
       const msgJson = await msgRes.json()
  
       if (!msgRes.ok) {
@@ -66,6 +69,8 @@ export default function ChatPage() {
       }
  
       setMessages(msgJson.data.messages || [])
+      setNextCursor(msgJson.data.nextCursor || null)
+      setHasMore(Boolean(msgJson.data.hasMore))
  
       const otherId =
         msgJson.data.senderId === user.id
@@ -120,6 +125,30 @@ export default function ChatPage() {
     }
   }, [connectionId])
  
+  async function loadOlderMessages() {
+    if (!hasMore || !nextCursor || loadingMore) return
+
+    try {
+      setLoadingMore(true)
+      const res = await fetch(
+        `/api/messages?connectionId=${connectionId}&limit=50&before_id=${encodeURIComponent(nextCursor)}`
+      )
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to load older messages')
+
+      setMessages(previous => {
+        const existingIds = new Set(previous.map(message => message.id))
+        return [...(json.data.messages || []).filter(message => !existingIds.has(message.id)), ...previous]
+      })
+      setNextCursor(json.data.nextCursor || null)
+      setHasMore(Boolean(json.data.hasMore))
+    } catch (err) {
+      console.error('Failed to load older messages:', err)
+    } finally {
+      setLoadingMore(false)
+    }
+  }
+
   // ─── SEND MESSAGE ─────────────────────────────────────────────────────────
   const handleSend = async (e) => {
     e.preventDefault()
@@ -268,7 +297,20 @@ export default function ChatPage() {
  
       {/* ── MESSAGES CANVAS AREA ── */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar bg-gradient-to-b from-background/30 via-transparent to-background/30 space-y-4">
-        
+        {hasMore && (
+          <div className="flex justify-center">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={loadOlderMessages}
+              disabled={loadingMore}
+              className="rounded-xl text-xs"
+            >
+              {loadingMore ? 'Loading...' : 'Load older messages'}
+            </Button>
+          </div>
+        )}
+
         {messages.length === 0 && (
           <div className="h-full flex flex-col items-center justify-center text-center space-y-2 py-12">
             <div className="p-3 rounded-full bg-primary/5 text-primary">

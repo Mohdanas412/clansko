@@ -1,6 +1,6 @@
 // app/api/messages/route.js
-// GET /api/messages?connectionId=xxx
-// Returns all messages for a given connection, oldest first
+// GET /api/messages?connectionId=xxx&limit=50&before_id=xxx
+// Returns a bounded page of messages for a given connection, oldest first.
  
 export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
@@ -64,8 +64,27 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Not authorized.' }, { status: 403 })
     }
  
-    // Fetch all messages for this connection, oldest first
-    const { data: messages, error: msgError } = await supabase
+    const requestedLimit = Number.parseInt(searchParams.get('limit') || '50', 10)
+    const requestedBeforeId = searchParams.get('before_id')
+    const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 100) : 50
+    let beforeCreatedAt = null
+
+    if (requestedBeforeId) {
+      const { data: cursorMessage, error: cursorError } = await supabase
+        .from('messages')
+        .select('id, created_at')
+        .eq('id', requestedBeforeId)
+        .eq('connection_id', connectionId)
+        .maybeSingle()
+
+      if (cursorError || !cursorMessage) {
+        return NextResponse.json({ error: 'Invalid message cursor.' }, { status: 400 })
+      }
+      beforeCreatedAt = cursorMessage.created_at
+    }
+
+    // Fetch newest messages first, then reverse them for the existing chat UI.
+    let messagesQuery = supabase
       .from('messages')
       .select(`
         id,
@@ -76,17 +95,31 @@ export async function GET(request) {
         sender:sender_id ( id, name, profile_photo )
       `)
       .eq('connection_id', connectionId)
-      .order('created_at', { ascending: true })
- 
-    if (msgError) {
-      return NextResponse.json({ error: msgError.message }, { status: 500 })
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(limit + 1)
+
+    if (beforeCreatedAt) {
+      messagesQuery = messagesQuery.or(
+        `created_at.lt.${beforeCreatedAt},and(created_at.eq.${beforeCreatedAt},id.lt.${requestedBeforeId})`
+      )
     }
- 
+
+    const { data: messagesWithExtra, error: msgError } = await messagesQuery
+    if (msgError) return NextResponse.json({ error: msgError.message }, { status: 500 })
+
+    const hasMore = (messagesWithExtra?.length || 0) > limit
+    const newestFirst = hasMore ? messagesWithExtra.slice(0, limit) : (messagesWithExtra || [])
+    const messages = newestFirst.reverse()
+    const nextCursor = hasMore && messages.length > 0 ? messages[0].id : null
+
     return NextResponse.json({
       data: {
-        messages: messages || [],
+        messages,
         senderId: connection.sender_id,
         receiverId: connection.receiver_id,
+        nextCursor,
+        hasMore,
       }
     }, { status: 200 })
  

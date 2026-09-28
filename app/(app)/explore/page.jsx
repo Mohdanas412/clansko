@@ -34,6 +34,9 @@ export default function ExplorePage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [skillFilter, setSkillFilter] = useState('')
   const [connectingTo, setConnectingTo] = useState(null)
+  const [nextPage, setNextPage] = useState(null)
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
  
   // ✅ SAFE — browser client used only for auth check below
   const supabase = createBrowserClient(
@@ -63,7 +66,7 @@ export default function ExplorePage() {
     // cookie server-side. Passing userId as a query param was redundant and
     // allowed client-supplied ID spoofing; removed.
     const [usersRes, connectionsRes] = await Promise.all([
-      fetch('/api/users'),
+      fetch('/api/users?limit=24'),
       fetch('/api/connections'),
     ])
     const usersData = await usersRes.json()
@@ -71,7 +74,31 @@ export default function ExplorePage() {
     if (usersData.error) throw new Error(usersData.error)
     if (connectionsData.error) throw new Error(connectionsData.error)
     setUsers(usersData.data || [])
+    setNextPage(usersData.nextCursor || null)
+    setHasMore(Boolean(usersData.hasMore))
     setConnections(connectionsData.data || [])
+  }
+
+  async function loadMoreUsers() {
+    if (!hasMore || nextPage === null || loadingMore) return
+
+    try {
+      setLoadingMore(true)
+      const res = await fetch(`/api/users?limit=24&page=${encodeURIComponent(nextPage)}`)
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to load more builders')
+
+      setUsers(previous => {
+        const existingIds = new Set(previous.map(user => user.id))
+        return [...previous, ...(json.data || []).filter(user => !existingIds.has(user.id))]
+      })
+      setNextPage(json.nextCursor || null)
+      setHasMore(Boolean(json.hasMore))
+    } catch (err) {
+      toast.error(err.message || 'Failed to load more builders.')
+    } finally {
+      setLoadingMore(false)
+    }
   }
  
   async function handleRespond(connectionId) {
@@ -285,6 +312,19 @@ export default function ExplorePage() {
           </motion.div>
         ))}
       </div>
+
+      {hasMore && !searchQuery && !skillFilter && (
+        <div className="flex justify-center pt-8">
+          <Button
+            variant="outline"
+            onClick={loadMoreUsers}
+            disabled={loadingMore}
+            className="min-w-44 rounded-xl text-xs"
+          >
+            {loadingMore ? 'Loading...' : 'Load more builders'}
+          </Button>
+        </div>
+      )}
  
     </div>
   )

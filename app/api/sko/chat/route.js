@@ -3,6 +3,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
+import { applyRateLimit } from '@/lib/ratelimit'
 
 export const dynamic = 'force-dynamic'
 
@@ -122,7 +123,15 @@ export async function POST(request) {
 
     const userId = authUser.id
 
-    // 2. Parse request body
+    // 2. Rate limit: 10 req/min + 100 req/day per user
+    const [rlMinute, rlDaily] = await Promise.all([
+      applyRateLimit(request, 'sko-chat', userId),
+      applyRateLimit(request, 'sko-chat-daily', userId),
+    ])
+    if (!rlMinute.success) return rlMinute.response
+    if (!rlDaily.success) return rlDaily.response
+
+    // 3. Parse request body
     const body = await request.json()
     const { messages } = body
 
@@ -130,7 +139,10 @@ export async function POST(request) {
       return NextResponse.json({ error: 'No messages provided' }, { status: 400 })
     }
 
-    // 3. Fetch user context in parallel
+    // Clamp history to last 20 turns to cap Groq token spend
+    const recentMessages = messages.slice(-20)
+
+    // 4. Fetch user context in parallel
     const [userResult, postsResult, connectionsResult, goalsResult] = await Promise.all([
       supabase.from('users').select('*').eq('id', userId).maybeSingle(),
 
@@ -181,7 +193,7 @@ export async function POST(request) {
           model: 'llama-3.3-70b-versatile',
           messages: [
             { role: 'system', content: systemPrompt },
-            ...messages.map(m => ({
+            ...recentMessages.map(m => ({
               role: m.role === 'model' ? 'assistant' : m.role,
               content: m.parts[0].text,
             })),

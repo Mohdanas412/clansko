@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { applyRateLimit } from '@/lib/ratelimit'
 
 // Helper — creates supabase server client with cookie access
 function getSupabase() {
@@ -25,11 +26,18 @@ function getSupabase() {
 }
 
 export async function POST(request) {
+  // Rate limit: 3 attempts per hour per IP
+  const rl = await applyRateLimit(request, 'signup')
+  if (!rl.success) return rl.response
+
   try {
     const { name, email, password } = await request.json()
 
     if (!name || !email || !password) {
       return NextResponse.json({ error: 'All fields are required.' }, { status: 400 })
+    }
+    if (typeof name !== 'string' || name.trim().length < 1 || name.trim().length > 100) {
+      return NextResponse.json({ error: 'Name must be between 1 and 100 characters.' }, { status: 400 })
     }
     if (password.length < 6) {
       return NextResponse.json({ error: 'Password must be at least 6 characters.' }, { status: 400 })
@@ -50,7 +58,7 @@ export async function POST(request) {
       .insert({
         id: userId,
         email,
-        name,
+        name: name.trim(),
         onboarding_done: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

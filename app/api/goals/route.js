@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { validateGoal } from '@/lib/validation';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +30,11 @@ export async function GET(request) {
 
   if (!weekKey) {
     return NextResponse.json({ error: 'week_key required' }, { status: 400 });
+  }
+
+  // Validate week_key format
+  if (!/^\d{4}-W\d{2}$/.test(weekKey)) {
+    return NextResponse.json({ error: 'week_key must be in YYYY-Www format (e.g. 2026-W39).' }, { status: 400 });
   }
 
   const { data, error } = await supabase
@@ -66,11 +72,14 @@ export async function POST(request) {
   }
 
   const body = await request.json();
-  const { goal_text, week_key } = body;
 
-  if (!goal_text || !week_key) {
-    return NextResponse.json({ error: 'goal_text and week_key required' }, { status: 400 });
+  // Validate goal_text (3–200 chars) and week_key format
+  const validation = validateGoal(body);
+  if (!validation.ok) {
+    return NextResponse.json({ error: validation.error }, { status: validation.status });
   }
+
+  const { goal_text, week_key } = validation.value;
 
   // Check if user already has 3 goals this week
   const { data: existingGoals } = await supabase

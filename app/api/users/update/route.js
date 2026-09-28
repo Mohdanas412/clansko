@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { validateUserUpdate } from '@/lib/validation';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +26,13 @@ export async function PATCH(request) {
   }
 
   const body = await request.json();
+
+  // Validate string length limits (bio ≤500, skills/looking_for ≤10 items each ≤30 chars)
+  const validation = validateUserUpdate(body);
+  if (!validation.ok) {
+    return NextResponse.json({ error: validation.error }, { status: validation.status });
+  }
+
   const {
     name,
     college,
@@ -37,12 +45,9 @@ export async function PATCH(request) {
     onboarding_done
   } = body;
 
-  // Use authenticated user's ID (don't trust client-provided user_id)
-  const userId = user.id;
-
   // Build update object with only provided fields
   const updateData = {};
-  if (name !== undefined) updateData.name = name;
+  if (name !== undefined) updateData.name = typeof name === 'string' ? name.trim() : name;
   if (college !== undefined) updateData.college = college;
   if (branch !== undefined) updateData.branch = branch;
   if (year !== undefined) updateData.year = year;
@@ -57,7 +62,7 @@ export async function PATCH(request) {
   const { data, error } = await supabase
     .from('users')
     .update(updateData)
-    .eq('id', userId)
+    .eq('id', user.id)
     .select()
     .single();
 

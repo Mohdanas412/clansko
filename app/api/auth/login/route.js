@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { applyRateLimit } from '@/lib/ratelimit'
 
 function getSupabase() {
   const cookieStore = cookies()
@@ -24,6 +25,10 @@ function getSupabase() {
 }
 
 export async function POST(request) {
+  // Rate limit: 5 attempts per minute per IP
+  const rl = await applyRateLimit(request, 'login')
+  if (!rl.success) return rl.response
+
   try {
     const { email, password } = await request.json()
 

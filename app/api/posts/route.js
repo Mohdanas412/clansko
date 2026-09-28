@@ -79,40 +79,58 @@ export async function GET(request) {
     }
  
     const postIds = posts.map(p => p.id)
- 
-    const { data: reactions } = await supabase
-      .from('reactions')
-      .select('post_id, type, user_id')
-      .in('post_id', postIds)
- 
-    const { data: comments } = await supabase
-      .from('comments')
-      .select('id, post_id, content, created_at, users:user_id(name, profile_photo)')
-      .in('post_id', postIds)
-      .order('created_at', { ascending: true })
- 
+
+    // ✅ FIX (Task 0.4): Replace the feed's per-post /api/projects/:id waterfall.
+    // Previously the feed fired one HTTP request per post (20 posts = 21 HTTP
+    // roundtrips, ~81 DB queries). Now all related data is fetched in 3 parallel
+    // queries and embedded directly on each post object.
+    const [
+      { data: reactions },
+      { data: comments },
+      { data: rawMembers },
+    ] = await Promise.all([
+      supabase
+        .from('reactions')
+        .select('post_id, type, user_id')
+        .in('post_id', postIds),
+      supabase
+        .from('comments')
+        .select('id, post_id, content, created_at, users:user_id(name, profile_photo)')
+        .in('post_id', postIds)
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('project_members')
+        .select('id, project_id, user_id, role, status, users:user_id(id, name, college, profile_photo)')
+        .in('project_id', postIds)
+        .eq('status', 'accepted'),
+    ])
+
+    // Build lookup maps in O(n) — no nested loops
     const reactionMap = {}
     const commentMap = {}
- 
+    const teamMap = {}
+
     postIds.forEach(id => {
       reactionMap[id] = []
       commentMap[id] = []
+      teamMap[id] = []
     })
- 
-    reactions?.forEach(r => {
-      reactionMap[r.post_id]?.push(r)
+
+    reactions?.forEach(r => { reactionMap[r.post_id]?.push(r) })
+    comments?.forEach(c => { commentMap[c.post_id]?.push(c) })
+    rawMembers?.forEach(m => {
+      // Preserve the existing FeedCard member shape (`member.profile`) while
+      // using the relationship result returned by Supabase (`users`).
+      teamMap[m.project_id]?.push({ ...m, profile: m.users || null })
     })
- 
-    comments?.forEach(c => {
-      commentMap[c.post_id]?.push(c)
-    })
- 
+
     const enrichedPosts = posts.map(post => ({
       ...post,
       reactions: reactionMap[post.id] || [],
       comments: commentMap[post.id] || [],
+      team_members: teamMap[post.id] || [],
     }))
- 
+
     return NextResponse.json({ data: enrichedPosts }, { status: 200 })
  
   } catch (err) {

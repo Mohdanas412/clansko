@@ -1,6 +1,7 @@
 // app/api/users/route.js
-// GET — Fetch all users except the current user
-// Usage: /api/users?userId=abc123
+// GET — Fetch all users except the current authenticated user.
+// Auth is required — user ID is derived strictly from the session cookie,
+// never from a client-supplied query parameter.
 
 export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
@@ -26,25 +27,24 @@ function getSupabase() {
   )
 }
 
-export async function GET(request) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('userId')
-
-    if (!userId) {
-      return NextResponse.json({ error: 'userId is required.' }, { status: 400 })
-    }
-
     const supabase = getSupabase()
 
-    // Fetch all users EXCEPT the current user
-    // Only return fields needed for the explore card — not sensitive stuff
+    // Derive the current user from the session — never trust client-supplied IDs
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 })
+    }
+
+    // Return all onboarded users except the caller.
+    // Only expose public directory fields — never email or auth metadata.
     const { data, error } = await supabase
       .from('users')
       .select('id, name, college, branch, year, bio, skills, looking_for, profile_photo, created_at')
-      .neq('id', userId)           // neq = "not equal" — excludes current user
-      .eq('onboarding_done', true) // only show users who completed onboarding
-      .order('created_at', { ascending: false }) // newest members first
+      .neq('id', user.id)
+      .eq('onboarding_done', true)
+      .order('created_at', { ascending: false })
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })

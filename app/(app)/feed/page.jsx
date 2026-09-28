@@ -68,7 +68,6 @@ export default function FeedPage() {
  
   const [currentUser, setCurrentUser] = useState(null)
   const [posts, setPosts] = useState([])
-  const [postTeams, setPostTeams] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [showModal, setShowModal] = useState(false)
@@ -100,20 +99,6 @@ export default function FeedPage() {
       const fetchedPosts = json.data || []
       setPosts(fetchedPosts)
  
-      const teamResults = await Promise.all(
-        fetchedPosts.map(p =>
-          fetch(`/api/projects/${p.id}`)
-            .then(r => r.json())
-            .then(j => ({
-              postId: p.id,
-              members: (j.data?.members || []).filter(m => m.status === 'accepted'),
-            }))
-            .catch(() => ({ postId: p.id, members: [] }))
-        )
-      )
-      const teamMap = {}
-      teamResults.forEach(({ postId, members }) => { teamMap[postId] = members })
-      setPostTeams(teamMap)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -319,7 +304,7 @@ export default function FeedPage() {
                 currentUserId={currentUser?.id}
                 onReact={handleReact}
                 onExpand={() => setExpandedPost(post)}
-                teamMembers={postTeams[post.id] || []}
+                teamMembers={post.team_members || []}
                 router={router}
               />
             </motion.div>

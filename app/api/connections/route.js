@@ -1,5 +1,7 @@
 // app/api/connections/route.js
-// GET — Fetch all connections for a given user (sent + received)
+// GET — Fetch all connections for the current authenticated user (sent + received).
+// Auth is required — user ID is derived strictly from the session cookie,
+// never from a client-supplied query parameter.
 
 export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
@@ -25,19 +27,19 @@ function getSupabase() {
   )
 }
 
-export async function GET(request) {
+export async function GET() {
   try {
-    // Get userId from query params: /api/connections?userId=abc123
-    const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('userId')
-
-    if (!userId) {
-      return NextResponse.json({ error: 'userId is required.' }, { status: 400 })
-    }
-
     const supabase = getSupabase()
 
-    // Fetch connections where user is the SENDER
+    // Derive the current user from the session — never trust client-supplied IDs
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 })
+    }
+
+    const userId = user.id
+
+    // Fetch connections where the current user is the SENDER
     const { data: sent, error: sentError } = await supabase
       .from('connections')
       .select(`
@@ -50,7 +52,7 @@ export async function GET(request) {
       return NextResponse.json({ error: sentError.message }, { status: 500 })
     }
 
-    // Fetch connections where user is the RECEIVER
+    // Fetch connections where the current user is the RECEIVER
     const { data: received, error: receivedError } = await supabase
       .from('connections')
       .select(`
@@ -63,29 +65,27 @@ export async function GET(request) {
       return NextResponse.json({ error: receivedError.message }, { status: 500 })
     }
 
-    // Normalize both arrays into a flat format the frontend can easily use
+    // Normalize both arrays into a flat format the frontend can easily use.
     // Each item will have: connectionId, status, direction, otherUser
     const sentNormalized = (sent || []).map(c => ({
       connectionId: c.id,
       status: c.status,
-      direction: 'sent',       // I sent this request
+      direction: 'sent',
       message: c.message,
       createdAt: c.created_at,
-      otherUser: c.receiver,   // the person I sent it to
+      otherUser: c.receiver,
     }))
 
     const receivedNormalized = (received || []).map(c => ({
       connectionId: c.id,
       status: c.status,
-      direction: 'received',   // I received this request
+      direction: 'received',
       message: c.message,
       createdAt: c.created_at,
-      otherUser: c.sender,     // the person who sent it to me
+      otherUser: c.sender,
     }))
 
-    const allConnections = [...sentNormalized, ...receivedNormalized]
-
-    return NextResponse.json({ data: allConnections }, { status: 200 })
+    return NextResponse.json({ data: [...sentNormalized, ...receivedNormalized] }, { status: 200 })
   } catch (err) {
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 })
   }

@@ -78,8 +78,8 @@ export default function ProjectPage({ params }) {
     setShowInviteModal(true)
     setConnectionsLoading(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      const res = await fetch(`/api/connections?userId=${user.id}`)
+      // ✅ SECURE — session cookie identifies the caller server-side; no userId param needed
+      const res = await fetch('/api/connections')
       const json = await res.json()
       if (!res.ok) throw new Error()
 

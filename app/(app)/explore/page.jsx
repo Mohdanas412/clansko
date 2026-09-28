@@ -48,7 +48,7 @@ export default function ExplorePage() {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
         setCurrentUserId(user.id)
-        await fetchData(user.id)
+        await fetchData()
       } catch (err) {
         setError('Failed to load users. Please refresh.')
       } finally {
@@ -58,11 +58,13 @@ export default function ExplorePage() {
     init()
   }, [])
  
-  async function fetchData(userId) {
-    // ✅ SECURE — both API routes verified auth server-side
+  async function fetchData() {
+    // ✅ SECURE — both API routes derive the caller's identity from the session
+    // cookie server-side. Passing userId as a query param was redundant and
+    // allowed client-supplied ID spoofing; removed.
     const [usersRes, connectionsRes] = await Promise.all([
-      fetch(`/api/users?userId=${userId}`),
-      fetch(`/api/connections?userId=${userId}`),
+      fetch('/api/users'),
+      fetch('/api/connections'),
     ])
     const usersData = await usersRes.json()
     const connectionsData = await connectionsRes.json()

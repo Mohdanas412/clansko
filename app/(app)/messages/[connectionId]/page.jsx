@@ -41,89 +41,95 @@ export default function ChatPage() {
   // ─── MAIN INIT + REALTIME SETUP ───────────────────────────────────────────
   useEffect(() => {
     let channel = null
- 
+    let isMounted = true
+
     async function init() {
       // ✅ SAFE — auth check on client is fine
       const { data: { user } } = await supabase.auth.getUser()
+      if (!isMounted) return
       if (!user) {
         router.push('/login')
         return
       }
- 
+
       const userRes = await fetch(`/api/users/${user.id}`)
       const userJson = await userRes.json()
+      if (!isMounted) return
       if (!userRes.ok) {
         router.push('/messages')
         return
       }
       setCurrentUser(userJson.data)
       currentUserRef.current = userJson.data
- 
+
       // ✅ SECURE — API route now verifies auth + connection ownership server-side
       const msgRes = await fetch(`/api/messages?connectionId=${connectionId}&limit=50`)
       const msgJson = await msgRes.json()
- 
+      if (!isMounted) return
+
       if (!msgRes.ok) {
         router.push('/messages')
         return
       }
- 
+
       setMessages(msgJson.data.messages || [])
       setNextCursor(msgJson.data.nextCursor || null)
       setHasMore(Boolean(msgJson.data.hasMore))
- 
+
       const otherId =
         msgJson.data.senderId === user.id
           ? msgJson.data.receiverId
           : msgJson.data.senderId
- 
+
       const otherRes = await fetch(`/api/users/${otherId}`)
       const otherJson = await otherRes.json()
+      if (!isMounted) return
       if (otherRes.ok) setOtherUser(otherJson.data)
- 
+
       setLoading(false)
       setTimeout(scrollToBottom, 100)
- 
+
       // Mark messages as read
       fetch('/api/messages/read', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ connection_id: connectionId }),
       }).catch(() => {})
- 
-      const channelName = `messages:${connectionId}`
-      supabase.removeChannel(supabase.channel(channelName))
- 
-      channel = supabase
-        .channel(channelName)
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'messages',
-            filter: `connection_id=eq.${connectionId}`
-          },
-          (payload) => {
-            const newMsg = payload.new
-            if (
-              currentUserRef.current &&
-              newMsg.sender_id !== currentUserRef.current.id
-            ) {
-              setMessages(prev => [...prev, newMsg])
-              setTimeout(scrollToBottom, 100)
-            }
-          }
-        )
-        .subscribe()
     }
- 
+
     init()
- 
+
+    const channelName = `messages:${connectionId}`
+    channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `connection_id=eq.${connectionId}`
+        },
+        (payload) => {
+          const newMsg = payload.new
+          if (
+            currentUserRef.current &&
+            newMsg.sender_id !== currentUserRef.current.id
+          ) {
+            setMessages(prev => [...prev, newMsg])
+            setTimeout(scrollToBottom, 100)
+          }
+        }
+      )
+      .subscribe()
+
     return () => {
+      isMounted = false
       if (channel) supabase.removeChannel(channel)
     }
   }, [connectionId])
+
+
  
   async function loadOlderMessages() {
     if (!hasMore || !nextCursor || loadingMore) return
@@ -422,3 +428,4 @@ export default function ChatPage() {
     </div>
   )
 }
+

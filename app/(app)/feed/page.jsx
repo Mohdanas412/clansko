@@ -1,6 +1,6 @@
 'use client'
  
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
@@ -212,6 +212,16 @@ export default function FeedPage() {
       toast.error('Failed to react. Try again.')
     }
   }
+
+  // Stable callback refs — prevents PostCard from re-rendering when parent
+  // state changes that are unrelated to a specific card (e.g. modal open/close,
+  // stage filter, loadingMore). useCallback deps are intentionally minimal:
+  // currentUser is only needed inside handleReact; setExpandedPost is stable.
+  const stableHandleReact = useCallback(handleReact, [currentUser])
+  const stableHandleExpand = useCallback(
+    (post) => setExpandedPost(post),
+    []
+  )
  
   const filteredPosts = posts.filter(p => {
     if (selectedStageFilter === 'all') return true
@@ -327,8 +337,8 @@ export default function FeedPage() {
               <PostCard
                 post={post}
                 currentUserId={currentUser?.id}
-                onReact={handleReact}
-                onExpand={() => setExpandedPost(post)}
+                onReact={stableHandleReact}
+                onExpand={stableHandleExpand}
                 teamMembers={post.team_members || []}
                 router={router}
               />
@@ -507,7 +517,11 @@ const REPORT_REASONS = [
   'Other',
 ]
 
-function PostCard({ post, currentUserId, onReact, onExpand, teamMembers, router }) {
+// React.memo prevents re-renders when parent state changes that don't affect
+// this card (stage filter toggle, modal open/close, loadingMore, etc.).
+// onReact and onExpand are stabilised with useCallback in FeedPage so the
+// memo comparison is meaningful.
+const PostCard = React.memo(function PostCard({ post, currentUserId, onReact, onExpand, teamMembers, router }) {
   const userReaction = post.reactions_by_user?.[currentUserId]
   const isOwner = post.user_id === currentUserId
   const stageObj = STAGE_OPTIONS.find(s => s.value === post.stage) || STAGE_OPTIONS[0]
@@ -727,7 +741,7 @@ function PostCard({ post, currentUserId, onReact, onExpand, teamMembers, router 
       )}
     </>
   )
-}
+})
 
 // ── MODAL WRAPPER ──────────────────────────────────────────────────────────────
 function Modal({ children, onClose }) {

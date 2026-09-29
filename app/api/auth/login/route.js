@@ -1,28 +1,8 @@
 // app/api/auth/login/route.js
 export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { getSupabaseServerClient } from '@/lib/supabase-server'
 import { applyRateLimit } from '@/lib/ratelimit'
-
-function getSupabase() {
-  const cookieStore = cookies()
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        get(name) { return cookieStore.get(name)?.value },
-        set(name, value, options) {
-          try { cookieStore.set({ name, value, ...options }) } catch {}
-        },
-        remove(name, options) {
-          try { cookieStore.set({ name, value: '', ...options }) } catch {}
-        },
-      },
-    }
-  )
-}
 
 export async function POST(request) {
   // Rate limit: 5 attempts per minute per IP
@@ -36,7 +16,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Email and password are required.' }, { status: 400 })
     }
 
-    const supabase = getSupabase()
+    const supabase = await getSupabaseServerClient()
 
     const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : ''
     if (!normalizedEmail) {

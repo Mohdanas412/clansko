@@ -1,28 +1,13 @@
 // app/api/sko/chat/route.js
 
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createServerClient } from '@supabase/ssr'
+import { getSupabaseServerClient } from '@/lib/supabase-server'
 import { applyRateLimit } from '@/lib/ratelimit'
 
 export const dynamic = 'force-dynamic'
 
-function createServerSupabaseClient() {
-  const cookieStore = cookies()
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        get(name) { return cookieStore.get(name)?.value },
-        set() {},
-        remove() {},
-      },
-    }
-  )
-}
-
 function getISOWeek(date) {
+
   const d = new Date(date)
   d.setHours(0, 0, 0, 0)
   d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7))
@@ -132,7 +117,7 @@ Do NOT: write code, manage tasks line by line, send notifications, replace their
 
 export async function POST(request) {
   try {
-    const supabase = createServerSupabaseClient()
+    const supabase = await getSupabaseServerClient()
 
     // 1. Auth check
     const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()

@@ -4,27 +4,11 @@
  
 export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
- 
-function getSupabase() {
-  const cookieStore = cookies()
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        get(name) { return cookieStore.get(name)?.value },
-        set(name, value, options) { try { cookieStore.set({ name, value, ...options }) } catch {} },
-        remove(name, options) { try { cookieStore.set({ name, value: '', ...options }) } catch {} },
-      },
-    }
-  )
-}
+import { getSupabaseServerClient } from '@/lib/supabase-server'
  
 export async function GET(request) {
   try {
-    const supabase = getSupabase()
+    const supabase = await getSupabaseServerClient()
  
     // ✅ FIX: Verify auth session first — user ID comes from the server,
     // not from anything the client sends. Previously missing entirely.

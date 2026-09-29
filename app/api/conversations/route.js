@@ -1,20 +1,10 @@
 // app/api/conversations/route.js
 // GET /api/conversations?limit=30&cursor=<opaque cursor>
 // Returns a bounded, newest-activity-first page without per-connection queries.
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { getSupabaseServerClient } from '@/lib/supabase-server'
 
 export const dynamic = 'force-dynamic'
-
-function getSupabase() {
-  const cookieStore = cookies()
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    { cookies: { get(name) { return cookieStore.get(name)?.value } } }
-  )
-}
 
 function decodeCursor(cursor) {
   if (!cursor) return null
@@ -32,7 +22,7 @@ function decodeCursor(cursor) {
 
 export async function GET(request) {
   try {
-    const supabase = getSupabase()
+    const supabase = await getSupabaseServerClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 })

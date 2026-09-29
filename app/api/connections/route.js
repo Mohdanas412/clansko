@@ -5,31 +5,11 @@
 
 export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
-
-function getSupabase() {
-  const cookieStore = cookies()
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        get(name) { return cookieStore.get(name)?.value },
-        set(name, value, options) {
-          try { cookieStore.set({ name, value, ...options }) } catch {}
-        },
-        remove(name, options) {
-          try { cookieStore.set({ name, value: '', ...options }) } catch {}
-        },
-      },
-    }
-  )
-}
+import { getSupabaseServerClient } from '@/lib/supabase-server'
 
 export async function GET() {
   try {
-    const supabase = getSupabase()
+    const supabase = await getSupabaseServerClient()
 
     // Derive the current user from the session — never trust client-supplied IDs
     const { data: { user }, error: authError } = await supabase.auth.getUser()

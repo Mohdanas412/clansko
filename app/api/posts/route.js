@@ -4,31 +4,11 @@
  
 export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
- 
-function getSupabase() {
-  const cookieStore = cookies()
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        get(name) { return cookieStore.get(name)?.value },
-        set(name, value, options) {
-          try { cookieStore.set({ name, value, ...options }) } catch {}
-        },
-        remove(name, options) {
-          try { cookieStore.set({ name, value: '', ...options }) } catch {}
-        },
-      },
-    }
-  )
-}
+import { getSupabaseServerClient } from '@/lib/supabase-server'
  
 export async function GET(request) {
   try {
-    const supabase = getSupabase()
+    const supabase = await getSupabaseServerClient()
  
     // ✅ FIX: Auth check was missing entirely.
     // Previously anyone could call this endpoint and read all posts + author data.
@@ -36,6 +16,7 @@ export async function GET(request) {
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 })
     }
+
  
     // Optional `user_id` supports profile pages. Feed pagination uses an opaque
     // cursor carrying both sort fields so records with identical timestamps are

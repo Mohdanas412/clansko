@@ -5,39 +5,21 @@
 
 export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
-
-function getSupabase() {
-  const cookieStore = cookies()
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        get(name) { return cookieStore.get(name)?.value },
-        set(name, value, options) {
-          try { cookieStore.set({ name, value, ...options }) } catch {}
-        },
-        remove(name, options) {
-          try { cookieStore.set({ name, value: '', ...options }) } catch {}
-        },
-      },
-    }
-  )
-}
+import { getSupabaseServerClient } from '@/lib/supabase-server'
 
 export async function GET(request, { params }) {
   try {
-    const { id } = params
+    const resolvedParams = await params
+    const id = resolvedParams?.id
 
     if (!id) {
       return NextResponse.json({ error: 'User ID is required.' }, { status: 400 })
     }
 
-    const supabase = getSupabase()
+    const supabase = await getSupabaseServerClient()
 
     // Require a valid session — prevents unauthenticated profile scraping
+
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 })

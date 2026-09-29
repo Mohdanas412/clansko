@@ -1,29 +1,8 @@
 // app/api/auth/signup/route.js
 export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { getSupabaseServerClient } from '@/lib/supabase-server'
 import { applyRateLimit } from '@/lib/ratelimit'
-
-// Helper — creates supabase server client with cookie access
-function getSupabase() {
-  const cookieStore = cookies()
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        get(name) { return cookieStore.get(name)?.value },
-        set(name, value, options) {
-          try { cookieStore.set({ name, value, ...options }) } catch {}
-        },
-        remove(name, options) {
-          try { cookieStore.set({ name, value: '', ...options }) } catch {}
-        },
-      },
-    }
-  )
-}
 
 export async function POST(request) {
   // Rate limit: 3 attempts per hour per IP
@@ -48,7 +27,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'A valid email address is required.' }, { status: 400 })
     }
 
-    const supabase = getSupabase()
+    const supabase = await getSupabaseServerClient()
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: normalizedEmail,
       password,

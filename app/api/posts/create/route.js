@@ -1,39 +1,20 @@
 // app/api/posts/create/route.js
 export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { getSupabaseServerClient } from '@/lib/supabase-server'
 import { applyRateLimit } from '@/lib/ratelimit'
 import { validatePost } from '@/lib/validation'
 
-function getSupabase() {
-  const cookieStore = cookies()
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        get(name) { return cookieStore.get(name)?.value },
-        set(name, value, options) {
-          try { cookieStore.set({ name, value, ...options }) } catch {}
-        },
-        remove(name, options) {
-          try { cookieStore.set({ name, value: '', ...options }) } catch {}
-        },
-      },
-    }
-  )
-}
-
 export async function POST(request) {
   try {
-    const supabase = getSupabase()
+    const supabase = await getSupabaseServerClient()
 
     // Auth check — userId always comes from the verified session
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 })
     }
+
 
     // Rate limit: 5 posts per hour per user
     const rl = await applyRateLimit(request, 'post-create', user.id)

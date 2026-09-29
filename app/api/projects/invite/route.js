@@ -1,28 +1,17 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createServerClient } from '@supabase/ssr'
+import { getSupabaseServerClient } from '@/lib/supabase-server'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(request) {
   try {
-    const cookieStore = await cookies()
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      {
-        cookies: {
-          get(name) { return cookieStore.get(name)?.value },
-          set() {},
-          remove() {},
-        },
-      }
-    )
+    const supabase = await getSupabaseServerClient()
 
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
 
     const { project_id, user_id, role } = await request.json()
 

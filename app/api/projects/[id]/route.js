@@ -1,76 +1,61 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createServerClient } from '@supabase/ssr'
+import { getSupabaseServerClient } from '@/lib/supabase-server'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request, { params }) {
   try {
-    const cookieStore = await cookies()
+    const resolvedParams = await params
+    const id = resolvedParams?.id
 
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      {
-        cookies: {
-          get(name) { return cookieStore.get(name)?.value },
-          set() {},
-          remove() {},
-        },
-      }
-    )
+    if (!id) {
+      return NextResponse.json({ error: 'Project ID is required.' }, { status: 400 })
+    }
+
+    const supabase = await getSupabaseServerClient()
 
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id } = params
+    // Fetch project with author join and team members with profile join in parallel
+    const [projectResult, membersResult] = await Promise.all([
+      supabase
+        .from('posts')
+        .select(`
+          *,
+          author:user_id ( id, name, college, branch, year, profile_photo, skills )
+        `)
+        .eq('id', id)
+        .single(),
+      supabase
+        .from('project_members')
+        .select(`
+          id, user_id, invited_by, role, status, created_at,
+          profile:user_id ( id, name, college, branch, year, profile_photo, skills )
+        `)
+        .eq('project_id', id)
+    ])
 
-    const { data: project, error: projectError } = await supabase
-      .from('posts')
-      .select('*')
-      .eq('id', id)
-      .single()
-
-    if (projectError) {
+    if (projectResult.error || !projectResult.data) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
 
-    const { data: author } = await supabase
-      .from('users')
-      .select('id, name, college, branch, year, profile_photo, skills')
-      .eq('id', project.user_id)
-      .maybeSingle()
-
-    const { data: members, error: membersError } = await supabase
-      .from('project_members')
-      .select('id, user_id, invited_by, role, status, created_at')
-      .eq('project_id', id)
-
-    if (membersError) {
+    if (membersResult.error) {
       return NextResponse.json({ error: 'Failed to fetch team' }, { status: 500 })
     }
 
-    let memberProfiles = []
-    if (members && members.length > 0) {
-      const memberUserIds = members.map(m => m.user_id)
-      const { data: profiles } = await supabase
-        .from('users')
-        .select('id, name, college, branch, year, profile_photo, skills')
-        .in('id', memberUserIds)
-
-      memberProfiles = members.map(m => ({
-        ...m,
-        profile: (profiles || []).find(p => p.id === m.user_id) || null,
-      }))
-    }
+    const projectData = projectResult.data
+    const author = projectData.author
+    // Disassociate author from the base project object if frontend expects them separated
+    const { author: _, ...project } = projectData
 
     return NextResponse.json({
       data: {
         project,
-        author,
-        members: memberProfiles,
+        author: author || null,
+        members: membersResult.data || [],
         isOwner: project.user_id === user.id,
         currentUserId: user.id,
       }
@@ -78,6 +63,6 @@ export async function GET(request, { params }) {
 
   } catch (err) {
     console.error('GET /api/projects/[id] error:', err.message)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error.' }, { status: 500 })
   }
 }

@@ -35,8 +35,8 @@ export async function PATCH(request) {
     .from('messages')
     .update({ is_read: true })
     .eq('connection_id', connection_id)
-    .eq('is_read', false)
-    .neq('sender_id', user.id); // Don't mark own messages
+    .eq('receiver_id', user.id)
+    .eq('is_read', false);
 
   if (error) {
     console.error('Mark as read error:', error);

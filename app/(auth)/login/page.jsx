@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createBrowserClient } from '@supabase/ssr';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
@@ -12,13 +11,6 @@ import { Button } from '@/components/ui/Button';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [supabase] = useState(() =>
-    createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    )
-  );
-
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -43,22 +35,11 @@ export default function LoginPage() {
       const result = await response.json();
 
       if (response.ok) {
-        // Sign in on client side to preserve local auth persistence rules exactly
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password
-        });
-
-        if (signInError) {
-          toast.error(signInError.message);
-          setLoading(false);
-          return;
-        }
-
+        // The API route creates the Supabase SSR session cookie. Do not sign in a
+        // second time in the browser: doing so causes racing, conflicting sessions.
         toast.success('Welcome back!');
-        setTimeout(() => {
-        window.location.href = '/feed';
-        }, 500);
+        router.refresh();
+        window.location.assign('/feed');
       } else {
         toast.error(result.error || 'Login failed');
       }

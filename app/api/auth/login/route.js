@@ -38,31 +38,24 @@ export async function POST(request) {
 
     const supabase = getSupabase()
 
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : ''
+    if (!normalizedEmail) {
+      return NextResponse.json({ error: 'A valid email address is required.' }, { status: 400 })
+    }
+
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email,
+      email: normalizedEmail,
       password,
     })
 
-    if (authError) {
+    if (authError || !authData.user) {
       return NextResponse.json({ error: 'Invalid email or password.' }, { status: 400 })
     }
 
-    const { data: userProfile, error: profileError } = await supabase
-      .from('users')
-      .select('id, name, onboarding_done')
-      .eq('email', email)
-      .single()
-
-    if (profileError || !userProfile) {
-      return NextResponse.json({ error: 'User profile not found.' }, { status: 404 })
-    }
-
+    // Password authentication is sufficient here. A profile query can be denied by
+    // RLS or be briefly unavailable after signup; neither must invalidate a session.
     return NextResponse.json({
-      data: {
-        userId: userProfile.id,
-        name: userProfile.name,
-        onboardingDone: userProfile.onboarding_done,
-      }
+      data: { userId: authData.user.id }
     }, { status: 200 })
 
   } catch (err) {

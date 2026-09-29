@@ -77,12 +77,17 @@ export async function POST(request) {
       return NextResponse.json({ error: 'You are not part of this connection.' }, { status: 403 })
     }
  
-    // Insert the message using user.id as sender_id (not from client)
+    const receiverId = connection.sender_id === user.id
+      ? connection.receiver_id
+      : connection.sender_id
+
+    // Insert the message using authenticated participant identities only.
     const { data: message, error: insertError } = await supabase
       .from('messages')
       .insert({
         connection_id: connectionId,
-        sender_id: user.id,           // ✅ always from auth session
+        sender_id: user.id,
+        receiver_id: receiverId,
         content: trimmed,
         is_read: false,
         created_at: new Date().toISOString(),

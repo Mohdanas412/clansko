@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createBrowserClient } from '@supabase/ssr';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { Sparkles, ArrowRight, CheckCircle2, Zap, ShieldCheck } from 'lucide-react';
@@ -11,13 +10,6 @@ import { Button } from '@/components/ui/Button';
 
 export default function SignupPage() {
   const router = useRouter();
-  const [supabase] = useState(() =>
-    createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    )
-  );
-
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -54,20 +46,17 @@ export default function SignupPage() {
       const result = await response.json();
 
       if (response.ok) {
-        // Authenticate client-side to enforce local storage bindings exactly
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password
-        });
-
-        if (signInError) {
-          toast.error(signInError.message);
-          setLoading(false);
+        if (result.data?.requiresEmailConfirmation) {
+          toast.success('Account created. Check your email to confirm your account, then sign in.');
+          router.push('/login');
           return;
         }
 
+        // The API route creates the Supabase SSR session cookie. Do not repeat the
+        // authentication in the browser, which previously caused session races.
         toast.success('Account created successfully!');
-        window.location.href = '/onboarding';
+        router.refresh();
+        window.location.assign('/onboarding');
       } else {
         toast.error(result.error || 'Sign up failed');
       }

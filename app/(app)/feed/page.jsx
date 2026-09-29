@@ -643,6 +643,7 @@ function ExpandedPost({ post, currentUser, onClose, onReact, onCommentAdded }) {
   const [comment, setComment] = React.useState('')
   const [commentLoading, setCommentLoading] = React.useState(false)
   const [commentError, setCommentError] = React.useState(null)
+  const [commentsLoadingMore, setCommentsLoadingMore] = React.useState(false)
  
   const userReaction = (fullPost || post).reactions_by_user?.[currentUser?.id]
   const displayPost = fullPost || post
@@ -665,6 +666,32 @@ function ExpandedPost({ post, currentUser, onClose, onReact, onCommentAdded }) {
     load()
   }, [post.id])
  
+  async function loadMoreComments() {
+    const cursor = fullPost?.commentsNextCursor
+    if (!cursor || commentsLoadingMore) return
+
+    try {
+      setCommentsLoadingMore(true)
+      const res = await fetch(`/api/posts/${post.id}?comments_limit=30&comments_cursor=${encodeURIComponent(cursor)}`)
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to load more comments')
+
+      setFullPost(prev => {
+        const existingIds = new Set((prev.comments || []).map(existingComment => existingComment.id))
+        return {
+          ...prev,
+          comments: [...(prev.comments || []), ...(json.data.comments || []).filter(nextComment => !existingIds.has(nextComment.id))],
+          commentsNextCursor: json.data.commentsNextCursor,
+          commentsHasMore: json.data.commentsHasMore,
+        }
+      })
+    } catch (err) {
+      setCommentError(err.message)
+    } finally {
+      setCommentsLoadingMore(false)
+    }
+  }
+
   async function handleComment() {
     if (!comment.trim()) return
     try {
@@ -789,6 +816,14 @@ function ExpandedPost({ post, currentUser, onClose, onReact, onCommentAdded }) {
           {!loading && displayPost.comments?.length === 0 && (
             <div className="py-6 text-center text-xs text-muted-foreground/80 bg-secondary/10 rounded-xl border border-dashed border-border/60 italic">
               No comments yet. Be the first to share feedback!
+            </div>
+          )}
+
+          {!loading && fullPost?.commentsHasMore && (
+            <div className="flex justify-center pt-1">
+              <Button variant="outline" size="sm" onClick={loadMoreComments} disabled={commentsLoadingMore}>
+                {commentsLoadingMore ? 'Loading...' : 'Load more comments'}
+              </Button>
             </div>
           )}
         </div>

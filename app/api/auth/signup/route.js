@@ -43,33 +43,33 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Password must be at least 6 characters.' }, { status: 400 })
     }
 
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : ''
+    if (!normalizedEmail) {
+      return NextResponse.json({ error: 'A valid email address is required.' }, { status: 400 })
+    }
+
     const supabase = getSupabase()
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: normalizedEmail,
+      password,
+      options: {
+        // The database trigger uses this metadata to create the matching profile.
+        data: { name: name.trim() },
+      },
+    })
 
-    const { data: authData, error: authError } = await supabase.auth.signUp({ email, password })
-
-    if (authError) {
-      return NextResponse.json({ error: authError.message }, { status: 400 })
+    if (authError || !authData.user) {
+      return NextResponse.json({ error: authError?.message || 'Unable to create your account.' }, { status: 400 })
     }
 
-    const userId = authData.user.id
-
-    const { error: dbError } = await supabase
-      .from('users')
-      .insert({
-        id: userId,
-        email,
-        name: name.trim(),
-        onboarding_done: false,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-
-    if (dbError) {
-      console.error('DB insert error:', dbError)
-      return NextResponse.json({ error: 'Signup failed. Please try again.' }, { status: 500 })
-    }
-
-    return NextResponse.json({ data: { userId } }, { status: 200 })
+    // Profile creation belongs to the auth.users database trigger. Doing a second
+    // client-scoped insert here fails under RLS and can create orphaned auth users.
+    return NextResponse.json({
+      data: {
+        userId: authData.user.id,
+        requiresEmailConfirmation: !authData.session,
+      },
+    }, { status: 200 })
 
   } catch (err) {
     console.error('Signup error:', err)

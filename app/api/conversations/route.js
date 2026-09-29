@@ -1,94 +1,78 @@
 // app/api/conversations/route.js
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
- 
-export const dynamic = 'force-dynamic';
- 
-export async function GET(request) {
-  const cookieStore = cookies();
- 
-  const supabase = createServerClient(
+// GET /api/conversations?limit=30&cursor=<opaque cursor>
+// Returns a bounded, newest-activity-first page without per-connection queries.
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+import { NextResponse } from 'next/server'
+
+export const dynamic = 'force-dynamic'
+
+function getSupabase() {
+  const cookieStore = cookies()
+  return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        get(name) {
-          return cookieStore.get(name)?.value;
-        },
-      },
+    { cookies: { get(name) { return cookieStore.get(name)?.value } } }
+  )
+}
+
+function decodeCursor(cursor) {
+  if (!cursor) return null
+
+  try {
+    const value = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'))
+    if (!value?.timestamp || !value?.connectionId || Number.isNaN(Date.parse(value.timestamp))) {
+      throw new Error('Invalid cursor')
     }
-  );
- 
-  // ✅ AUTH CHECK — server-side, cannot be spoofed
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return value
+  } catch {
+    return undefined
   }
- 
-  // ✅ Only fetch connections belonging to the authenticated user
-  const { data: connections, error: connError } = await supabase
-    .from('connections')
-    .select(`
-      id,
-      sender_id,
-      receiver_id,
-      created_at,
-      sender:users!connections_sender_id_fkey(id, name, profile_photo),
-      receiver:users!connections_receiver_id_fkey(id, name, profile_photo)
-    `)
-    .eq('status', 'accepted')
-    .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
-    .order('created_at', { ascending: false });
- 
-  if (connError) {
-    return NextResponse.json({ error: connError.message }, { status: 500 });
-  }
- 
-  if (!connections || connections.length === 0) {
-    return NextResponse.json({ data: [] }, { status: 200 });
-  }
- 
-  // ✅ For each connection, fetch last message + unread count
-  // All of this runs server-side — user.id is from verified auth token
-  const conversationsWithMessages = await Promise.all(
-    connections.map(async (conn) => {
-      try {
-        const { data: lastMessage } = await supabase
-          .from('messages')
-          .select('*')
-          .eq('connection_id', conn.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
- 
-        const { data: unreadMessages } = await supabase
-          .from('messages')
-          .select('id')
-          .eq('connection_id', conn.id)
-          .eq('is_read', false)
-          .neq('sender_id', user.id);
- 
-        const otherUser =
-          conn.sender_id === user.id ? conn.receiver : conn.sender;
- 
-        return {
-          connectionId: conn.id,
-          otherUser,
-          lastMessage,
-          unreadCount: unreadMessages?.length || 0,
-          timestamp: lastMessage?.created_at || conn.created_at,
-        };
-      } catch (err) {
-        console.error('Error processing connection:', err);
-        return null;
-      }
+}
+
+export async function GET(request) {
+  try {
+    const supabase = getSupabase()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const requestedLimit = Number.parseInt(searchParams.get('limit') || '30', 10)
+    const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 50) : 30
+    const cursor = decodeCursor(searchParams.get('cursor'))
+    if (cursor === undefined) {
+      return NextResponse.json({ error: 'Invalid cursor.' }, { status: 400 })
+    }
+
+    // get_conversations_page performs the last-message lookup and unread aggregate
+    // in one database query. It is defined in the 1,000-users Supabase migration.
+    const { data, error } = await supabase.rpc('get_conversations_page', {
+      page_limit: limit + 1,
+      page_cursor_timestamp: cursor?.timestamp || null,
+      page_cursor_connection_id: cursor?.connectionId || null,
     })
-  );
- 
-  const validConversations = conversationsWithMessages
-    .filter(Boolean)
-    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
- 
-  return NextResponse.json({ data: validConversations }, { status: 200 });
+
+    if (error) {
+      console.error('Conversations fetch error:', error)
+      return NextResponse.json({ error: 'Unable to load conversations.' }, { status: 500 })
+    }
+
+    const rows = data || []
+    const hasMore = rows.length > limit
+    const conversations = hasMore ? rows.slice(0, limit) : rows
+    const lastConversation = conversations[conversations.length - 1]
+    const nextCursor = hasMore && lastConversation
+      ? Buffer.from(JSON.stringify({
+          timestamp: lastConversation.timestamp,
+          connectionId: lastConversation.connectionId,
+        })).toString('base64url')
+      : null
+
+    return NextResponse.json({ data: conversations, nextCursor, hasMore }, { status: 200 })
+  } catch (error) {
+    console.error('Unexpected conversations error:', error)
+    return NextResponse.json({ error: 'Internal server error.' }, { status: 500 })
+  }
 }

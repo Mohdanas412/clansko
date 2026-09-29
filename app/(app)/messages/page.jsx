@@ -26,6 +26,9 @@ export default function MessagesPage() {
   const [currentUser, setCurrentUser] = useState(null);
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState(null);
+  const [hasMore, setHasMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
  
   useEffect(() => {
@@ -57,7 +60,7 @@ export default function MessagesPage() {
         // via API route which verifies auth server-side before returning data.
         // Previously this was done with direct Supabase calls from the client,
         // allowing anyone with the anon key to read any user's messages.
-        const response = await fetch('/api/conversations');
+        const response = await fetch('/api/conversations?limit=30');
         const result = await response.json();
  
         if (!response.ok) {
@@ -67,6 +70,8 @@ export default function MessagesPage() {
         }
  
         setConversations(result.data || []);
+        setNextCursor(result.nextCursor || null);
+        setHasMore(Boolean(result.hasMore));
         setLoading(false);
       } catch (error) {
         console.error('Error initializing messages page:', error);
@@ -77,6 +82,28 @@ export default function MessagesPage() {
     init();
   }, [supabase, router]);
  
+  const loadMoreConversations = async () => {
+    if (loadingMore || !hasMore || !nextCursor) return;
+
+    try {
+      setLoadingMore(true);
+      const response = await fetch(`/api/conversations?limit=30&cursor=${encodeURIComponent(nextCursor)}`);
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to load more conversations');
+
+      setConversations(prev => {
+        const existingIds = new Set(prev.map(conversation => conversation.connectionId));
+        return [...prev, ...(result.data || []).filter(conversation => !existingIds.has(conversation.connectionId))];
+      });
+      setNextCursor(result.nextCursor || null);
+      setHasMore(Boolean(result.hasMore));
+    } catch (error) {
+      console.error('Error loading more conversations:', error);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   const formatTime = (timestamp) => {
     const date = new Date(timestamp);
     const now = new Date();
@@ -269,6 +296,14 @@ export default function MessagesPage() {
                 </motion.div>
               );
             })}
+          </div>
+        )}
+
+        {hasMore && !searchQuery && (
+          <div className="pt-5 flex justify-center">
+            <Button variant="outline" onClick={loadMoreConversations} disabled={loadingMore}>
+              {loadingMore ? 'Loading...' : 'Load more conversations'}
+            </Button>
           </div>
         )}
       </div>

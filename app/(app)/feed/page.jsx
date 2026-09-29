@@ -22,7 +22,8 @@ import {
   Cpu, 
   CornerDownRight,
   TrendingUp,
-  Briefcase
+  Briefcase,
+  Flag
 } from 'lucide-react'
  
 import { cn } from '@/lib/utils'
@@ -498,42 +499,89 @@ export default function FeedPage() {
 }
  
 // ── POST CARD ──────────────────────────────────────────────────────────────────
+const REPORT_REASONS = [
+  'Spam or self-promotion',
+  'Harassment or hate speech',
+  'Misinformation',
+  'Inappropriate content',
+  'Other',
+]
+
 function PostCard({ post, currentUserId, onReact, onExpand, teamMembers, router }) {
   const userReaction = post.reactions_by_user?.[currentUserId]
   const isOwner = post.user_id === currentUserId
   const stageObj = STAGE_OPTIONS.find(s => s.value === post.stage) || STAGE_OPTIONS[0]
- 
+
+  const [showReportModal, setShowReportModal] = React.useState(false)
+  const [reportReason, setReportReason] = React.useState('')
+  const [reportLoading, setReportLoading] = React.useState(false)
+
+  async function handleReport(e) {
+    e.stopPropagation()
+    if (!reportReason) return
+    try {
+      setReportLoading(true)
+      const res = await fetch('/api/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetType: 'post', targetId: post.id, reason: reportReason }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to submit report')
+      toast.success('Report submitted. Thanks for keeping the community safe.')
+      setShowReportModal(false)
+      setReportReason('')
+    } catch (err) {
+      toast.error(err.message || 'Could not submit report. Try again.')
+    } finally {
+      setReportLoading(false)
+    }
+  }
+
   return (
-    <Card className="p-5 sm:p-6 rounded-2xl border-border/80 bg-card hover:border-border hover:shadow-md transition-all duration-200 group flex flex-col justify-between relative overflow-hidden">
-      <div className="absolute top-0 right-0 w-20 h-1 bg-gradient-to-l from-primary/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-      <div>
-        <div className="flex items-start justify-between gap-3 mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-secondary border border-border/80 flex items-center justify-center font-bold text-xs text-primary shrink-0 overflow-hidden shadow-inner relative">
-              {post.users?.profile_photo ? (
-                <img src={post.users.profile_photo} alt={post.users.name} className="w-full h-full object-cover" />
-              ) : (
-                <span>{post.users?.name?.charAt(0).toUpperCase() || '?'}</span>
-              )}
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm font-bold text-foreground leading-none hover:text-primary transition-colors cursor-pointer">
-                  {post.users?.name || 'Anonymous Student'}
-                </span>
-                {isOwner && (
-                  <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.2 rounded font-medium">You</span>
+    <>
+      <Card className="p-5 sm:p-6 rounded-2xl border-border/80 bg-card hover:border-border hover:shadow-md transition-all duration-200 group flex flex-col justify-between relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-20 h-1 bg-gradient-to-l from-primary/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+        <div>
+          <div className="flex items-start justify-between gap-3 mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-secondary border border-border/80 flex items-center justify-center font-bold text-xs text-primary shrink-0 overflow-hidden shadow-inner relative">
+                {post.users?.profile_photo ? (
+                  <img src={post.users.profile_photo} alt={post.users.name} className="w-full h-full object-cover" />
+                ) : (
+                  <span>{post.users?.name?.charAt(0).toUpperCase() || '?'}</span>
                 )}
               </div>
-              <p className="text-[11px] text-muted-foreground mt-1 font-medium">
-                {post.users?.college || 'Student Builder'} <span className="opacity-60">•</span> {timeAgo(post.created_at)}
-              </p>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-bold text-foreground leading-none hover:text-primary transition-colors cursor-pointer">
+                    {post.users?.name || 'Anonymous Student'}
+                  </span>
+                  {isOwner && (
+                    <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.2 rounded font-medium">You</span>
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1 font-medium">
+                  {post.users?.college || 'Student Builder'} <span className="opacity-60">•</span> {timeAgo(post.created_at)}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className={cn("px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide border uppercase font-mono", stageObj.colorClass)}>
+                {post.stage}
+              </span>
+              {!isOwner && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setShowReportModal(true) }}
+                  className="p-1.5 rounded-lg text-muted-foreground/40 hover:text-red-500 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"
+                  title="Report this post"
+                  aria-label="Report this post"
+                >
+                  <Flag size={13} />
+                </button>
+              )}
             </div>
           </div>
-          <span className={cn("px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide border uppercase shrink-0 font-mono", stageObj.colorClass)}>
-            {post.stage}
-          </span>
-        </div>
  
         <h3 onClick={onExpand} className="text-base sm:text-lg font-bold text-foreground leading-snug mb-2 hover:text-primary transition-colors cursor-pointer">
           {post.title}
@@ -621,9 +669,66 @@ function PostCard({ post, currentUserId, onReact, onExpand, teamMembers, router 
         </div>
       </div>
     </Card>
+
+      {/* ── REPORT MODAL ── */}
+      {showReportModal && (
+        <div
+          onClick={() => { setShowReportModal(false); setReportReason('') }}
+          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="w-full max-w-sm bg-card border border-border rounded-2xl p-5 shadow-2xl shadow-black/5 animate-in zoom-in-95 duration-200"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Flag size={15} className="text-red-500" />
+                <span className="text-sm font-bold text-foreground">Report Post</span>
+              </div>
+              <button
+                onClick={() => { setShowReportModal(false); setReportReason('') }}
+                className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-all"
+                aria-label="Close report modal"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
+              Select a reason and we&apos;ll review this post. Reports are anonymous.
+            </p>
+
+            <div className="space-y-1.5 mb-4">
+              {REPORT_REASONS.map(reason => (
+                <button
+                  key={reason}
+                  onClick={() => setReportReason(reason)}
+                  className={cn(
+                    "w-full text-left px-3 py-2 rounded-xl text-xs font-medium border transition-all",
+                    reportReason === reason
+                      ? "bg-red-50 border-red-200 text-red-700"
+                      : "bg-secondary/40 border-transparent text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  )}
+                >
+                  {reason}
+                </button>
+              ))}
+            </div>
+
+            <Button
+              onClick={handleReport}
+              disabled={!reportReason || reportLoading}
+              className="w-full rounded-xl h-9 text-xs font-bold bg-red-500 hover:bg-red-600 text-white border-0"
+            >
+              {reportLoading ? 'Submitting...' : 'Submit Report'}
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
- 
+
 // ── MODAL WRAPPER ──────────────────────────────────────────────────────────────
 function Modal({ children, onClose }) {
   return (

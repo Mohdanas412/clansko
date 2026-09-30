@@ -4,36 +4,42 @@ import { NextResponse } from 'next/server'
 import { getSupabaseServerClient } from '@/lib/supabase-server'
 import { applyRateLimit } from '@/lib/ratelimit'
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 export async function POST(request) {
-  // Rate limit: 5 attempts per minute per IP
+  // Rate limit check per IP
   const rl = await applyRateLimit(request, 'login')
   if (!rl.success) return rl.response
 
   try {
-    const { email, password } = await request.json()
+    const body = await request.json().catch(() => null)
+    if (!body) {
+      return NextResponse.json({ error: 'Invalid JSON request payload.' }, { status: 400 })
+    }
+
+    const { email, password } = body
 
     if (!email || !password) {
       return NextResponse.json({ error: 'Email and password are required.' }, { status: 400 })
     }
 
-    const supabase = await getSupabaseServerClient()
-
     const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : ''
-    if (!normalizedEmail) {
-      return NextResponse.json({ error: 'A valid email address is required.' }, { status: 400 })
+    if (!normalizedEmail || !EMAIL_REGEX.test(normalizedEmail)) {
+      return NextResponse.json({ error: 'Please enter a valid email address.' }, { status: 400 })
     }
+
+    const supabase = await getSupabaseServerClient()
 
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email: normalizedEmail,
       password,
     })
 
-    if (authError || !authData.user) {
-      return NextResponse.json({ error: 'Invalid email or password.' }, { status: 400 })
+    if (authError || !authData?.user) {
+      const errorMessage = authError?.message || 'Invalid email or password.'
+      return NextResponse.json({ error: errorMessage }, { status: 400 })
     }
 
-    // Password authentication is sufficient here. A profile query can be denied by
-    // RLS or be briefly unavailable after signup; neither must invalidate a session.
     return NextResponse.json({
       data: { userId: authData.user.id }
     }, { status: 200 })

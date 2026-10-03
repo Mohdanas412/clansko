@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
@@ -278,7 +279,7 @@ export default function ProjectPage({ params }) {
             <div className="flex items-center gap-3.5 min-w-0">
               <div className="w-11 h-11 rounded-xl bg-secondary border border-border flex items-center justify-center font-extrabold text-sm text-primary shrink-0 overflow-hidden shadow-inner relative">
                 {author.profile_photo ? (
-                  <img src={author.profile_photo} alt={author.name} className="w-full h-full object-cover" />
+                  <Image src={author.profile_photo} alt={author.name} fill sizes="44px" className="object-cover" />
                 ) : (
                   <span>{author.name?.charAt(0).toUpperCase() || '?'}</span>
                 )}
@@ -417,7 +418,7 @@ export default function ProjectPage({ params }) {
                       <div className="flex items-center gap-2.5 min-w-0">
                         <div className="w-9 h-9 rounded-lg bg-secondary border border-border flex items-center justify-center font-bold text-xs text-primary shrink-0 overflow-hidden shadow-xs">
                           {c.profile_photo ? (
-                            <img src={c.profile_photo} alt={c.name} className="w-full h-full object-cover" />
+                            <Image src={c.profile_photo} alt={c.name} fill sizes="36px" className="object-cover" />
                           ) : (
                             <span>{c.name?.charAt(0).toUpperCase() || '?'}</span>
                           )}
@@ -468,7 +469,7 @@ function MemberRow({ member, pending = false, onProfileClick }) {
       <div className="flex items-center gap-3 min-w-0">
         <div className="w-9 h-9 rounded-lg bg-background border border-border flex items-center justify-center font-bold text-xs text-primary shrink-0 overflow-hidden shadow-xs">
           {p.profile_photo ? (
-            <img src={p.profile_photo} alt={p.name} className="w-full h-full object-cover" />
+            <Image src={p.profile_photo} alt={p.name} fill sizes="36px" className="object-cover" />
           ) : (
             <span>{p.name?.charAt(0).toUpperCase() || '?'}</span>
           )}

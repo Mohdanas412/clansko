@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import Link from 'next/link'
+import Image from 'next/image'
 import toast from 'react-hot-toast'
 import { motion } from 'framer-motion'
 import { 
@@ -372,7 +373,7 @@ function UserCard({ user, connectionInfo, onConnect, onRespond, isConnecting }) 
         <div className="flex items-start gap-3.5">
           <div className="w-12 h-12 rounded-xl bg-secondary border border-border flex items-center justify-center font-extrabold text-base text-primary shrink-0 overflow-hidden shadow-inner relative">
             {user.profile_photo ? (
-              <img src={user.profile_photo} alt={user.name} className="w-full h-full object-cover" />
+              <Image src={user.profile_photo} alt={user.name} fill sizes="48px" className="object-cover" />
             ) : (
               <span>{user.name?.charAt(0).toUpperCase() || '?'}</span>
             )}

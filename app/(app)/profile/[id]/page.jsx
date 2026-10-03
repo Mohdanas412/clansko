@@ -4,6 +4,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
+import Image from 'next/image';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -186,11 +187,12 @@ export default function ProfilePage() {
           <div className="flex flex-col sm:flex-row gap-5 items-start sm:items-center min-w-0 flex-1">
             <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-secondary border border-border flex items-center justify-center font-extrabold text-2xl text-primary shrink-0 overflow-hidden shadow-inner relative">
               {profileUser.profile_photo ? (
-                <img 
-                  src={profileUser.profile_photo} 
+                <Image
+                  src={profileUser.profile_photo}
                   alt={profileUser.name || ''}
-                  className="w-full h-full object-cover"
-                  onError={e => { e.target.style.display = 'none' }}
+                  fill
+                  sizes="96px"
+                  className="object-cover"
                 />
               ) : (
                 <span>{profileUser.name?.charAt(0).toUpperCase() || '?'}</span>
@@ -446,7 +448,7 @@ function PostCard({ post, currentUser }) {
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-10 h-10 rounded-xl bg-secondary border border-border flex items-center justify-center font-bold text-xs text-primary shrink-0 overflow-hidden shadow-inner">
             {post.users?.profile_photo ? (
-              <img src={post.users.profile_photo} alt="" className="w-full h-full object-cover" />
+              <Image src={post.users.profile_photo} alt="" fill sizes="40px" className="object-cover" />
             ) : (
               <span>{post.users?.name?.charAt(0).toUpperCase() || '?'}</span>
             )}

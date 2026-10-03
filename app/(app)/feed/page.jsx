@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
@@ -561,7 +562,7 @@ const PostCard = React.memo(function PostCard({ post, currentUserId, onReact, on
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-secondary border border-border/80 flex items-center justify-center font-bold text-xs text-primary shrink-0 overflow-hidden shadow-inner relative">
                 {post.users?.profile_photo ? (
-                  <img src={post.users.profile_photo} alt={post.users.name} className="w-full h-full object-cover" />
+                  <Image src={post.users.profile_photo} alt={post.users.name} fill sizes="40px" className="object-cover" />
                 ) : (
                   <span>{post.users?.name?.charAt(0).toUpperCase() || '?'}</span>
                 )}
@@ -627,7 +628,7 @@ const PostCard = React.memo(function PostCard({ post, currentUserId, onReact, on
                     {teamMembers.slice(0, 4).map((m, i) => (
                       <div key={m.id} title={m.profile?.name} className="w-7 h-7 rounded-full bg-secondary border-2 border-card flex items-center justify-center text-[10px] font-bold text-primary overflow-hidden relative -ml-2 first:ml-0 shadow-sm">
                         {m.profile?.profile_photo ? (
-                          <img src={m.profile.profile_photo} alt={m.profile.name} className="w-full h-full object-cover" />
+                          <Image src={m.profile.profile_photo} alt={m.profile.name} fill sizes="28px" className="object-cover" />
                         ) : (
                           <span>{m.profile?.name?.charAt(0).toUpperCase() || '?'}</span>
                         )}
@@ -858,7 +859,7 @@ function ExpandedPost({ post, currentUser, onClose, onReact, onCommentAdded }) {
           <div className="flex items-center gap-3 bg-secondary/30 p-2.5 rounded-xl border border-border/40">
             <div className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center font-bold text-xs text-primary overflow-hidden">
               {displayPost.users?.profile_photo ? (
-                <img src={displayPost.users.profile_photo} alt={displayPost.users.name} className="w-full h-full object-cover" />
+                <Image src={displayPost.users.profile_photo} alt={displayPost.users.name} fill sizes="32px" className="object-cover" />
               ) : (
                 <span>{displayPost.users?.name?.charAt(0).toUpperCase() || '?'}</span>
               )}

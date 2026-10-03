@@ -1,6 +1,6 @@
 // app/api/posts/[id]/route.js
-// GET a single post by ID
-// Returns: post + author info + all comments (with commenter info) + reactions
+// GET  a single post by ID — returns post + author + comments + reactions
+// DELETE a post by ID — owner only, cascades comments/reactions via FK
 
 export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
@@ -130,6 +130,57 @@ export async function GET(request, { params }) {
     }
 
     return NextResponse.json({ data: result }, { status: 200 })
+
+  } catch (err) {
+    console.error('Unexpected error:', err)
+    return NextResponse.json({ error: 'Internal server error.' }, { status: 500 })
+  }
+}
+
+export async function DELETE(request, { params }) {
+  try {
+    const resolvedParams = await params
+    const id = resolvedParams?.id
+
+    if (!id) {
+      return NextResponse.json({ error: 'Post ID is required.' }, { status: 400 })
+    }
+
+    const supabase = await getSupabaseServerClient()
+
+    // Auth check — only the post owner may delete
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 })
+    }
+
+    // Verify ownership before deleting
+    const { data: post, error: fetchError } = await supabase
+      .from('posts')
+      .select('user_id')
+      .eq('id', id)
+      .single()
+
+    if (fetchError || !post) {
+      return NextResponse.json({ error: 'Post not found.' }, { status: 404 })
+    }
+
+    if (post.user_id !== user.id) {
+      return NextResponse.json({ error: 'Forbidden.' }, { status: 403 })
+    }
+
+    // Delete — FK ON DELETE CASCADE handles comments, reactions, project_members
+    const { error: deleteError } = await supabase
+      .from('posts')
+      .delete()
+      .eq('id', id)
+
+    if (deleteError) {
+      console.error('Post delete error:', deleteError)
+      return NextResponse.json({ error: deleteError.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true }, { status: 200 })
 
   } catch (err) {
     console.error('Unexpected error:', err)

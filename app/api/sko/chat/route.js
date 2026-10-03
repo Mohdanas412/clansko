@@ -208,7 +208,7 @@ export async function POST(request) {
           'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
         },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
+          model: 'qwen/qwen3.8-27b', // Updated from deprecated 'llama-3.3-70b-versatile'
           messages: [
             { role: 'system', content: systemPrompt },
             ...recentMessages,

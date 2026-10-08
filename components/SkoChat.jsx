@@ -367,6 +367,8 @@ export default function SkoChat({ isOpen, onClose }) {
             <div className="p-4 border-t border-border/60 bg-card/60 shrink-0">
               <div className="relative flex items-center bg-background border border-border rounded-xl px-3 py-1.5 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-all shadow-inner">
                 <textarea
+                  id="sko-chat-input"
+                  name="message"
                   ref={inputRef}
                   value={input}
                   onChange={e => setInput(e.target.value)}

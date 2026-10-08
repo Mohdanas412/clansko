@@ -26,7 +26,8 @@ const nextConfig = {
             // Content-Security-Policy
             // - default-src 'self': block everything not explicitly listed
             // - script-src: allow Next.js inline scripts (nonce not available in static headers)
-            // - style-src: allow Tailwind inline styles
+            // - style-src: allow Tailwind inline styles + Google Fonts stylesheets
+            // - font-src: allow local fonts + Google Fonts files from gstatic.com
             // - img-src: allow data URIs and any https image host (avatars, CDNs)
             // - connect-src: allow Supabase REST/Realtime and Groq API
             // - frame-ancestors 'none': belt-and-suspenders with X-Frame-Options DENY
@@ -34,9 +35,9 @@ const nextConfig = {
             value: [
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-              "style-src 'self' 'unsafe-inline'",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              "font-src 'self' data: https://fonts.gstatic.com",
               "img-src 'self' data: https:",
-              "font-src 'self' data:",
               `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.groq.com`,
               "frame-src 'none'",
               "frame-ancestors 'none'",

@@ -46,6 +46,7 @@ A full-stack platform for college builders to post ideas, find collaborators, fo
 - Form project teams and manage members
 - Set weekly goals and keep a visible streak
 - Talk to **Sko**, an AI assistant that knows your profile and your project context
+- Stay with Your people!
 
 Built solo, end-to-end, as a full-stack product — not a template.
 
